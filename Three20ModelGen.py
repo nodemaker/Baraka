@@ -1,4 +1,12 @@
-import struct, string ,sys, re, pdb	
+import struct, string ,sys, re, pdb 
+from sets import Set	
+		
+ObjC_Classes = { 'String':'NSString',
+				 'Number':'NSNumber',
+				 'Date':'NSDate',
+				 'Object':'NSObject',
+				 'Array' :'NSArray',	
+			   }		
 
 class ModelObject(object):
 
@@ -14,9 +22,54 @@ class ModelObject(object):
 		description = "<ModelObject>" + " " + self.name +" Type:"+ self.type	
 		
 		for subObject in self.subObjects:
-			description += "\n\t" + subObject.description()
+			description += "\n\t" + subObject.description;
 			
-		return description	
+		return description
+		
+	def interface(self):	
+		
+		interface = "@interface "+self.name+" : "+self.type + " {"
+		
+		for subObject in self.subObjects:
+			interface+= "\n\t"+subObject.ivar();
+			
+		interface+="\n}\n"
+		
+		for subObject in self.subObjects:
+			interface+= "\n"+subObject.property();
+			
+		interface+="\n\n@end"	
+			
+		return interface
+		
+	def nonBaseTypes(self):
+		
+		nonBaseTypes = Set()
+		
+		for subObject in self.subObjects:
+			if not subObject.is_base_type():
+				nonBaseTypes.add(subObject.objCType())
+			
+		return nonBaseTypes
+		
+	def headerFile(self,projectName):
+		
+		headerFile = "\\\\\n"
+		headerFile +="\\\\\t"+ self.name+".h\n"
+		if projectName:
+			headerFile +="\\\\\t"+ projectName+"\n"
+		headerFile +="\\\\\n"
+		
+		headerFile +="\n\n"
+		
+		for type in self.nonBaseTypes():
+			headerFile += "@class "+type+";\n"
+	
+		headerFile +="\n"	
+			
+		headerFile += self.interface()	
+		
+		return headerFile	
 		
 class BaseObject(object):
 
@@ -27,19 +80,71 @@ class BaseObject(object):
 	def description (self):
 		
 		return "<BaseObject>" + " " + self.name +" Type:"+ self.type
-
-def parse_hacker_name (data):
-
-	## parse hacker name from data 
-	hackerMatch = re.search(r'(hacker)\s(.+)',data,re.IGNORECASE)
+		
+	def ivar (self):
+			
+		return self.objCType() +"*" + " "+ "_" + self.name	
+		
+	def property (self):
 	
-	if hackerMatch:
-		hacker = hackerMatch.group(2)
+		if self.objCType() == 'NSString':
+			retainer = 'copy'
+		else: 
+			retainer = 'retain'
+		
+		return '@property (nonatomic, '+retainer+') '+ self.objCType() +"*" + " "+ self.name
+	
+	def objCType(self):
+	
+		if self.is_base_type():
+			type = ObjC_Classes[self.type]
+		else:
+			type = self.type
+		
+		return type	
+		
+	def is_base_type(self):
+		
+		if self.type in ObjC_Classes:
+			return True
+		else:
+			return False		
+							
+
+def main():
+	if len(sys.argv)==1:
+		print "Usage T20ModelObject.py <input-source-file-name>"
+
+	filename = sys.argv[1];
+
+	model = open(filename, 'r').read()
+
+	hacker = parse_variable(model,'hacker')
+
+	if hacker:
+		print 'Wassup '+hacker+' T20Gen will now generate code for you...\n'
 	else:
-		print 'Hacker name not found,using \'samyzee\' as Hacker Name'
-		hacker = 'samyzee'
+		print 'Who are you Mr.Hacker?'
+		
+	project = parse_variable(model,'project')
 	
-	return hacker		
+	if not project:
+		print 'WARNING:Project Name not found\n'		
+
+	objects = parse_model_objects(model)
+
+	for object in objects:
+		print object.headerFile(project)
+
+def parse_variable (data,varname):
+
+	## parse variable from data 
+	varnameMatch = re.search(r'('+varname+')\s(.+)',data,re.IGNORECASE)
+	
+	if varnameMatch:
+		return varnameMatch.group(2)
+	else:
+		return None	
 
 		
 def parse_model_objects (data):
@@ -77,26 +182,6 @@ def parse_model_objects (data):
 			allObjects.append(modelObject)
 		
 	return allObjects	
-							
-				
-
-# Gather our code in a main() function
-def main():
-	if len(sys.argv)==1:
-		print "Usage T20ModelObject.py <input-source-file-name>"
-
-	filename = sys.argv[1];
-
-	model = open(filename, 'r').read()
-
-	hacker = parse_hacker_name(model)
-
-	print 'Hello '+hacker+' T20Gen will now generate code for you...\n'
-
-	objects = parse_model_objects(model)
-
-	for object in objects:
-		print object.description()
 		
 		
 
