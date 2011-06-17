@@ -1,12 +1,22 @@
 import struct, string ,sys, re, pdb 
 from sets import Set	
+
+divider = "///////////////////////////////////////////////////////////////////////////////////////////////////\n"
+
+dateFormat = "yyyy-MM-dd'T'HH:mm:ssZZ"
 		
 ObjC_Classes = { 'String':'NSString',
 				 'Number':'NSNumber',
 				 'Date':'NSDate',
 				 'Object':'NSObject',
 				 'Array' :'NSArray',	
-			   }		
+			   }
+def tabs(n):
+        return "\t"*n
+
+def nextlineandtabs(n):
+        return "\n"+tabs(n)
+
 
 class ModelObject(object):
 
@@ -19,12 +29,52 @@ class ModelObject(object):
 		self.subObjects.append(subObject)
 		
 	def description (self):
-		description = "<ModelObject>" + " " + self.name +" Type:"+ self.type	
+		description = "-(NSString*) description {"
+
+                description += "\n\n\treturn [NSString stringWithFormat:@\"\\n"
 		
 		for subObject in self.subObjects:
-			description += "\n\t" + subObject.description;
+			description += subObject.objectname()+" - %@\\n"
+
+		description += "\""
+
+                for subObject in self.subObjects:
+			description += "," +subObject.ivarname()
+		
+
+                description += "];\n}\n"
 			
 		return description
+	
+
+        def dealloc (self):
+
+                dealloc = "-(void) dealloc {\n"
+
+                for subObject in self.subObjects:        
+                        dealloc += "\n\tTT_RELEASE_SAFELY("+subObject.ivarname()+");"
+
+                dealloc += "\n\n\t[super dealloc];\n}\n"
+
+                return dealloc                
+                
+
+	def implementation (self):
+
+                implementation = "@implementation "+self.name+"\n\n"
+                
+                for subObject in self.subObjects:
+                        implementation+=subObject.synthesizer()+";"+"\n"
+
+                implementation += "\n"+divider+self.initMethod()+"\n"
+        
+                implementation += "\n"+divider+self.dealloc()+"\n"
+
+                implementation += "\n"+divider+self.description()+"\n"
+
+                implementation += "\n@end"
+
+                return implementation
 		
 	def interface(self):	
 		
@@ -36,9 +86,11 @@ class ModelObject(object):
 		interface+="\n}\n"
 		
 		for subObject in self.subObjects:
-			interface+= "\n"+subObject.property();
+			interface+= "\n"+subObject.property()+";"
+
+		interface+= "\n\n"+self.initMethodDeclaration()+";"
 			
-		interface+="\n\n@end"	
+		interface+="\n@end"	
 			
 		return interface
 		
@@ -51,14 +103,54 @@ class ModelObject(object):
 				nonBaseTypes.add(subObject.objCType())
 			
 		return nonBaseTypes
+        
+	def headerFileName (self):
+                return self.name+".h"
+
+        def implFileName (self):
+                return self.name+".m"
+
+        def implFile (self,projectName):
+                implFile = "//\n"
+		implFile +="//\t"+ self.name+".m\n"
+		if projectName:
+			implFile +="//\t"+ projectName+"\n"
+		implFile +="//\n"
 		
+		implFile +="\n\n"
+
+		implFile += "@import \""+self.headerFileName()+"\n"
+
+                for type in self.nonBaseTypes():
+			implFile += "\n@import \""+type+".h\""
+
+                implFile +="\n\n"  
+
+		implFile +=divider+divider+divider
+
+		implFile +=self.implementation()
+
+		return implFile
+
+	def hasDateSubObject (self):
+                result = False
+                        
+                for subObject in self.subObjects:
+                        if subObject.objCType() is "NSDate":
+                                result = True
+                                break
+
+                return result       
+                
+		
+                		
 	def headerFile(self,projectName):
 		
-		headerFile = "\\\\\n"
-		headerFile +="\\\\\t"+ self.name+".h\n"
+		headerFile = "//\n"
+		headerFile +="//\t"+ self.name+".h\n"
 		if projectName:
-			headerFile +="\\\\\t"+ projectName+"\n"
-		headerFile +="\\\\\n"
+			headerFile +="//\t"+ projectName+"\n"
+		headerFile +="//\n"
 		
 		headerFile +="\n\n"
 		
@@ -69,21 +161,107 @@ class ModelObject(object):
 			
 		headerFile += self.interface()	
 		
-		return headerFile	
+		return headerFile
+
+        def fulldescription (self,project):
+                description = "--------------------\n"+self.headerFileName()+"\n--------------------\n"       
+		description += self.headerFile(project)+"\n"
+                description += "--------------------\n"+self.implFileName()+"\n--------------------\n"
+                description += self.implFile(project)+"\n"
+                return description
+
+        def initMethodDeclaration (self):
+
+                return "-(id) initWithDictionary:(NSDictionary*)entry"
+
+        def initMethod (self):
+                indentation = 1;
+                
+                definition = self.initMethodDeclaration()+" {\n"
+                definition += nextlineandtabs(indentation) + "if([entry isKindOfClass:[NSNull class]])"
+                definition += nextlineandtabs(indentation) + "return nil;\n"
+                definition += nextlineandtabs(indentation) + "if(self = [super init]) {\n"
+
+                indentation +=1
+                        
+                if self.hasDateSubObject():
+                        definition +=nextlineandtabs(indentation) + "NSDateFormatter* dateFormatter = [[[NSDateFormatter alloc] init] autorelease];"
+                        definition +=nextlineandtabs(indentation) + "[dateFormatter setTimeStyle:NSDateFormatterFullStyle];"
+                        definition +=nextlineandtabs(indentation) + "[dateFormatter setDateFormat:@\""+dateFormat+"\"];\n"
+                
+
+                for subObject in self.subObjects:
+
+                        lastEntryName = "entry"
+                              
+                        for key in subObject.objectkey():
+                                        
+                                definition +=nextlineandtabs(indentation)+ "if(["+lastEntryName+" objectForKey:@\""+key+"\"]) {"
+                                indentation +=1
+
+                                if key is not subObject.objectkey()[-1]:
+                                        definition +="\n"+nextlineandtabs(indentation)+ key+"Entry"+" = "+"["+lastEntryName+" objectForKey:@\""+key+"\"];"
+                                        lastEntryName = key+"Entry";
+                                
+
+                        count = len(subObject.objectkey())       
+                        objectkey = subObject.objectkey()[count-1]
+                        
+			definition +=nextlineandtabs(indentation)+ "self."+subObject.objectname()+" = "                     
+                        if subObject.is_base_type():
+                                if subObject.objCType() is "NSString":                                
+                                        definition += "[NSString stringWithString:["+lastEntryName+" objectForKey:@\""+objectkey+"\"]];"
+                                elif subObject.objCType() is "NSDate":        
+                                        definition += "[dateFormatter dateFromString:["+lastEntryName+" objectForKey:@\""+objectkey+"\"]];"
+                                elif subObject.objCType() is "NSNumber" :
+                                        definition += "[NSNumber numberWithInt:[["+lastEntryName+" objectForKey:@\""+objectkey+"\"] intValue]];"
+                                else:
+                                        definition += "I dont fucking know"
+                        else:
+                                definition+= "[[["+subObject.objCType()+" alloc] initWithDictionary:["+lastEntryName+" objectForKey:@\""+objectkey+"\"]] autorelease];"
+        
+
+                        for key in subObject.objectkey():
+                                indentation-=1
+                                definition+=nextlineandtabs(indentation)+"}"
+                                
+
+                        definition+="\n"        
+
+                indentation-=1
+                definition += nextlineandtabs(indentation)+ "}"
+
+                
+                indentation-=1
+                definition += nextlineandtabs(indentation)+ "}"
+
+                return definition
 		
 class BaseObject(object):
 
-	def __init__ (self,baseObjectName,baseObjectType):
+	def __init__ (self,baseObjectName,baseObjectType,baseObjectKey):
 		self.name = baseObjectName
 		self.type = baseObjectType
+                self.key = baseObjectKey
 		
 	def description (self):
 		
 		return "<BaseObject>" + " " + self.name +" Type:"+ self.type
+
+	def ivarname (self):
+                return "_"+self.name
 		
 	def ivar (self):
 			
-		return self.objCType() +"*" + " "+ "_" + self.name	
+		return self.objCType() +"*" + " "+ self.ivarname()	
+
+        def objectkey (self):
+
+                return self.key
+
+        def objectname (self):
+
+                return self.name
 		
 	def property (self):
 	
@@ -93,7 +271,10 @@ class BaseObject(object):
 			retainer = 'retain'
 		
 		return '@property (nonatomic, '+retainer+') '+ self.objCType() +"*" + " "+ self.name
-	
+
+	def synthesizer (self):
+
+                return "@synthesize "+self.objectname()+" = "+self.ivarname()	
 	def objCType(self):
 	
 		if self.is_base_type():
@@ -101,7 +282,8 @@ class BaseObject(object):
 		else:
 			type = self.type
 		
-		return type	
+		return type
+	
 		
 	def is_base_type(self):
 		
@@ -133,8 +315,9 @@ def main():
 
 	objects = parse_model_objects(model)
 
-	for object in objects:
-		print object.headerFile(project)
+        print "Generating Files...."
+                
+        print objects[1].fulldescription(project)
 
 def parse_variable (data,varname):
 
@@ -175,9 +358,16 @@ def parse_model_objects (data):
 			
 			for subobject in subobjects:
 				
-				subobjectsplit = re.split(r'\W+',subobject)
+				subobjectsplit = re.split(r'[\W]+',subobject)       
+
+				if (len(subobjectsplit)<3):
+                                        key = [subobjectsplit[1]]
+                                else:        
+                                        key = [key for key in subobjectsplit[2:] if key]
+
+                                print key            
 					
-				modelObject.addObject(BaseObject(subobjectsplit[1],subobjectsplit[0]))
+				modelObject.addObject(BaseObject(subobjectsplit[1],subobjectsplit[0],key))
 			
 			allObjects.append(modelObject)
 		
