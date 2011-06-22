@@ -1,6 +1,6 @@
 import re
 
-from ObjCGen import *
+from objcbarak import *
 
 class ModelObjectClass(ObjCClass):
 
@@ -9,9 +9,19 @@ class ModelObjectClass(ObjCClass):
 				super(ModelObjectClass,self).__init__(modelobject.name,modelobject.type)
 		
 				for subObject in modelobject.subObjects:
-						attributes = ['nonatomic','retain']
-						self.addInstanceVariable(ObjCVar(subObject.name,subObject.type),True,attributes)
-			
+						
+						variable = ObjCVar(subObject.type,subObject.name)
+						
+						attributes = ["nonatomic"]
+						
+						if variable.type.objCType() is 'NSString':
+								attributes.append("copy")
+						else:	
+								attributes.append("retain")
+							
+						self.addInstanceVariable(variable,True,attributes)
+						
+				self.addMethod(InitMethod([ObjCVar("Dictionary","entry")],"initWithDictionary:"))					
 						
 				
 
@@ -56,11 +66,7 @@ class ModelParser(object):
 				self.parseObjects()
 				
 		def objects (self):
-				return self.modelObjects		
-		
-		def projectName (self):
-				
-				return self.projectName	 	
+				return self.modelObjects			
 		
 		def parseVariable (self,varname):
 		

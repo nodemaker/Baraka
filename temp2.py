@@ -27,6 +27,7 @@
         def synthesizer (self):
 
                 return "@synthesize "+self.objectname()+" = "+self.ivarname()   
+                
         def objCType(self):
         
                 if self.is_base_type():

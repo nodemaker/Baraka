@@ -1,6 +1,6 @@
 import sys,string,pdb
 
-from TTModelParser import *
+from ttmodelbarak import *
 
 def main():
 		
@@ -11,20 +11,24 @@ def main():
 		
 		parser = ModelParser(filename)
 		
-		project = parser.projectName()
+		project = parser.projectname
 		hacker =  parser.parseVariable('hacker')
 		
 		if not project:
 				print 'WARNING:Project Name not found\n'				
 		
 		if hacker:
-				print 'Wassup '+hacker+' T20Gen will now generate code for you...\n'
+				print 'Wassup '+hacker+' Baraka will now generate code for you...\n'
 		else:
 				print 'Who are you Mr.Hacker?'
+
+		#modelObject = parser.modelObjects[1]
 		
-		for modelObject in parser.objects():
+		for modelObject in parser.modelObjects:
 				mClass = ModelObjectClass(modelObject)
-		
+				mHeaderFile = ObjCHeaderFile(mClass,project)
+				mHeaderFile.printout()	
+					
 		
 		
 
