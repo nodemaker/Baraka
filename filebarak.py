@@ -1,4 +1,5 @@
-divider = "///////////////////////////////////////////////////////////////////////////////////////////////////\n"
+
+divider = "///////////////////////////////////////////////////////////////////////////////////////////////////"
 
 
 class File(object):
@@ -19,12 +20,23 @@ class CodeList(list):
 				self.level = 0;
 
 		def append(self, item):
+				
 				errormsg = "Appended objects to CodeList must be String.Cannot append type %s"
 				
 				if isinstance(item,str):
 						super(CodeList, self).append(self.tab*self.level+item)
 				else:
 						raise TypeError,errormsg % item.type
+		
+		def extend(self, item):
+				errormsg = "Extending objects to CodeList must be Lists or Sets.Cannot append type %s"
+				
+				if isinstance(item,list) or isinstance(item,set):
+						for listitem in item:
+								self.append(listitem)
+				else:
+						raise TypeError,errormsg % item.type
+		
 				
 		def dedent(self):
 				if self.level > 0:

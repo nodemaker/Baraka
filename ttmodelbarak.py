@@ -20,10 +20,46 @@ class ModelObjectClass(ObjCClass):
 								attributes.append("retain")
 							
 						self.addInstanceVariable(variable,True,attributes)
-						
-				self.addMethod(InitMethod([ObjCVar("Dictionary","entry")],"initWithDictionary:"))					
-						
 				
+				self.initMethod = ModelObjectInitMethod(self)
+				self.deallocMethod = ModelObjectDeallocMethod(self)
+				self.addMethod(DescriptionMethod(self))
+										
+
+class ModelObjectInitMethod(InitMethod):
+
+		def __init__(self,modelclass):
+				super(ModelObjectInitMethod,self).__init__(modelclass,[ObjCVar("Dictionary","entry")],"initWithDictionary:")						
+
+class ModelObjectDeallocMethod(DeallocMethod):
+
+		def __init__(self,modelclass):
+				super(ModelObjectDeallocMethod,self).__init__(modelclass)
+
+
+class DescriptionMethod(ObjCMethod):
+		
+		def __init__(self,modelclass):
+				super(DescriptionMethod,self).__init__(modelclass,"String",[],"description")					
+				
+		def methodBody(self):
+				methodBody = CodeList()
+				descriptionString = "[NSString stringWithFormat:@\"\\n"
+			
+				for variable in self.objcclass.variables:
+						descriptionString += variable.name+" - %@\\n"
+				
+				descriptionString += "\""
+				
+				for variable in self.objcclass.variables:
+						descriptionString += "," +variable.ivarname()
+				
+				
+				descriptionString += "];"
+				
+				methodBody.append("return "+descriptionString)
+				return methodBody
+
 
 class ModelObject(object):
 		

@@ -27,7 +27,9 @@ def main():
 		for modelObject in parser.modelObjects:
 				mClass = ModelObjectClass(modelObject)
 				mHeaderFile = ObjCHeaderFile(mClass,project)
-				mHeaderFile.printout()	
+				mHeaderFile.printout()
+				mImplementationFile = ObjCImplFile(mClass,project)
+				mImplementationFile.printout()	
 					
 		
 		
