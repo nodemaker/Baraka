@@ -20,6 +20,8 @@ class CodeList(list):
 				self.level = 0;
 
 		def append(self, item):
+				if item is None:
+							return
 				
 				errormsg = "Appended objects to CodeList must be String.Cannot append type %s"
 				
@@ -44,3 +46,37 @@ class CodeList(list):
 				
 		def indent(self):
 				self.level=self.level+1  	
+		
+		
+		
+class CodeBlock(CodeList):
+		def __init__(self,blockHeader,superBlock=None):
+				super(CodeBlock,self).__init__()
+				super(CodeBlock,self).append(blockHeader + " {");
+				super(CodeBlock,self).append("}");
+				self.superBlock = superBlock
+				self.extending = False
+				
+		def append(self,item):
+				if self.extending is True:
+						super(CodeBlock,self).append(item)
+						return
+				
+				super(CodeBlock,self).pop()
+				super(CodeBlock,self).indent()
+				super(CodeBlock,self).append(item)
+				super(CodeBlock,self).dedent()
+				super(CodeBlock,self).append("}")
+				
+		def extend(self,item):
+				self.extending = True
+				super(CodeBlock,self).pop()
+				super(CodeBlock,self).indent()
+				super(CodeBlock,self).extend(item)
+				super(CodeBlock,self).dedent()
+				super(CodeBlock,self).append("}")
+				self.extending = False
+		
+		def appendStatement(self,statement):
+				self.append(statement+";")
+				

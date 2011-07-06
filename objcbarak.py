@@ -91,18 +91,9 @@ class ObjCMethod (object):
 				return "-("+self.returnType.objCPointer()+") "+self.fullname()+";"
 		
 		def definition	(self):	
-				definition = CodeList() 
-				definition.append("-("+self.returnType.objCPointer()+") "+self.fullname()+" {")
-				definition.indent()
-				definition.extend(self.methodBody())
-				definition.dedent()
-				definition.append("}")
+				definition = CodeBlock("-("+self.returnType.objCPointer()+") "+self.fullname())
 				return definition
 				
-		def methodBody (self):
-				return []		
-				
-
 class InitMethod (ObjCMethod):
 		
 		def __init__(self,objcclass,variables=[],methodname="init"):
@@ -113,11 +104,10 @@ class DeallocMethod (ObjCMethod):
 		def __init__(self,objcclass):
 				super(DeallocMethod,self).__init__(objcclass,"None",[],"dealloc")
 				
-		def methodBody(self):
-				methodBody = CodeList()
-				methodBody.extend(["","[super dealloc]",""])
-				
-				return methodBody
+		def definition(self):
+				definition = super(DeallocMethod,self).definition()
+				definition.extend(["","[super dealloc];",""])
+				return definition
 						
 
 
@@ -130,12 +120,20 @@ class ObjCClass(object):
 				self.properties = []
 				self.methods = []
 				self.initMethod = InitMethod(self)
-				
+				self.implImports = set([ObjCType(self.name)])
+	
+				self.headerImports = set()
+				if not self.supertype.isBaseType():
+						imports.add(self.objcclass.supertype)
+						
 		def addInstanceVariable(self,objcvar,isProperty=True,attributes=None):
 				self.variables.append(objcvar)
 				
 				if(isProperty):
 					self.addProperty(ObjCProperty(attributes,objcvar))
+				
+				if not objcvar.type.isBaseType():
+					self.headerImports.add(objcvar.type) 
 					
 		def addProperty(self,property):
 		
@@ -178,7 +176,7 @@ class ObjCHeaderFile (ObjCFile):
 				interface.indent()	
 					
 				for variable in self.objcclass.variables:
-					interface.append(variable.ivarString())
+					interface.append(variable.ivarString()+";")
 					
 				interface.dedent()
 					
@@ -199,19 +197,14 @@ class ObjCHeaderFile (ObjCFile):
 				
 				return interface
 				
-			
-				
 		def imports(self):
 				imports = set()
 				
-				if not self.objcclass.supertype.isBaseType():
-						imports.add("#import \""+self.objcclass.supertype.objCType()+".h\"") 
+				for importType in self.objcclass.headerImports:
+					imports.add("#import \"%s.h\""%importType.objCType())
 				
-				for variable in self.objcclass.variables:
-						if not variable.type.isBaseType():
-								imports.add("#import \""+variable.type.objCType()+".h\"") 
-								
-				return imports							
+				return imports	
+											
 									
 		def lines(self):
 				lines = CodeList()
@@ -249,21 +242,25 @@ class ObjCImplFile(ObjCFile):
 		def lines(self):
 				lines = CodeList()
 				
+				implementation = self.implementation()
+				
 				lines = self.fileHeader()
 				lines.append("")
 				lines.extend(self.imports())		
 				lines.append("")
 				lines.extend([divider,divider,divider])
-				lines.extend(self.implementation())
+				lines.extend(implementation)
 				
 				return lines
 		
 		def imports(self):
 				imports = set()
 				
-				imports.add("#import \""+self.objcclass.headerfilename()+"\"") 
-								
-				return imports
+				for importType in self.objcclass.implImports:
+					imports.add("#import \"%s.h\""%importType.objCType())
+				
+				return imports	
+					
 				
 		def synthesizers(self):
 				

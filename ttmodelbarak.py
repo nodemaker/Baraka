@@ -1,11 +1,14 @@
+import sys,string,pdb
 import re
 
 from objcbarak import *
+dateFormat = "yyyy-MM-dd'T'HH:mm:ssZZ"
 
 class ModelObjectClass(ObjCClass):
 
 		def __init__(self,modelobject):
-		
+				
+				self.modelobject = modelobject
 				super(ModelObjectClass,self).__init__(modelobject.name,modelobject.type)
 		
 				for subObject in modelobject.subObjects:
@@ -23,27 +26,121 @@ class ModelObjectClass(ObjCClass):
 				
 				self.initMethod = ModelObjectInitMethod(self)
 				self.deallocMethod = ModelObjectDeallocMethod(self)
-				self.addMethod(DescriptionMethod(self))
-										
+				self.addMethod(ModelObjectDescriptionMethod(self))
+		
+		
+		def hasDateSubObject (self):
+				for variable in self.variables:
+						if variable.type.objCType() is "NSDate":
+								return True
+				return False											
 
 class ModelObjectInitMethod(InitMethod):
 
 		def __init__(self,modelclass):
-				super(ModelObjectInitMethod,self).__init__(modelclass,[ObjCVar("Dictionary","entry")],"initWithDictionary:")						
+				super(ModelObjectInitMethod,self).__init__(modelclass,[ObjCVar("Dictionary","entry")],"initWithDictionary:")
+				
+		def definition(self):
+				definition = super(ModelObjectInitMethod,self).definition()
+				
+				definition.append("")
+				
+				nullcheckBlock = CodeBlock("if([entry isKindOfClass:[NSNull class]])")
+				nullcheckBlock.appendStatement("return nil")
+				definition.extend(nullcheckBlock)
+				
+				
+				if self.objcclass.supertype.objCType() is "NSObject":
+					initializationBlock = CodeBlock("if(self = [super init])")
+				else:
+					initializationBlock = CodeBlock("if(self = [super initWithDictionary:entry])")
+				
+				initializationBlock.append("")
+				
+				if self.objcclass.hasDateSubObject():
+						initializationBlock.appendStatement("NSDateFormatter* dateFormatter = [[[NSDateFormatter alloc] init] autorelease]")
+						initializationBlock.appendStatement("[dateFormatter setTimeStyle:NSDateFormatterFullStyle]")
+						initializationBlock.appendStatement("[dateFormatter setDateFormat:@\"%s\"]"%dateFormat)
+						initializationBlock.append("")
+				
+				for subObject in self.objcclass.modelobject.subObjects:
 
+						lastEntryName = "entry"
+						lastBlock = initializationBlock
+						
+						for key in subObject.key:
+								ifblock = CodeBlock("if([%(dictionary)s objectForKey:@\"%(key)s\"])"%{'dictionary':lastEntryName,'key':key},lastBlock)	
+								params = {'newDictName':key+"Entry",'newArrayName':key+"Entries",'lastDictName':lastEntryName,'key':key}
+								
+								if key is not subObject.key[-1]:
+										ifblock.appendStatement("NSDictionary* %(newDictName)s = [%(lastDictName)s objectForKey:@\"%(key)s\"]"%params)
+										lastEntryName = params["newDictName"]
+								elif subObject.objCType() is "NSArray":
+										ifblock.appendStatement("NSArray* %(newArrayName)s = [%(lastDictName)s objectForKey::@\"%(key)s\"]"%params)
+										lastEntryName = params["newArrayName"]
+								
+								lastBlock = ifblock		
+						
+						count = len(subObject.key)   	
+						objectkey = subObject.key[count-1]
+														
+						params = {'objectname':subObject.name,'dictionary':lastEntryName,'key':objectkey,'subtype':subObject.subtype}
+						if subObject.isBaseType():
+								if subObject.objCType() is "NSString": 
+										lastBlock.appendStatement("self.%(objectname)s = [NSString stringWithString:[%(dictionary)s objectForKey:@\"%(key)s\"]]"%params)
+								elif subObject.objCType() is "NSDate": 
+										lastBlock.appendStatement("self.%(objectname)s = [dateFormatter dateFromString:[%(dictionary)s objectForKey:@\"%(key)s\"]]"%params)
+								elif subObject.objCType() is "NSNumber":
+										lastBlock.appendStatement("self.%(objectname)s = [NSNumber numberWithInt:[[%(dictionary)s objectForKey:@\"%(key)s\"] intValue]]"%params)
+								elif subObject.objCType() is "NSArray":
+										lastBlock.append("")
+										lastBlock.appendStatement("NSMutableArray* %(objectname)s = [NSMutableArray arrayWithCapacity:[%(dictionary)s count]]"%params)
+										
+										self.objcclass.implImports.add(ObjCType(subObject.subtype))
+										
+										forblock = CodeBlock("for (NSDictionary* entry in %(dictionary)s)"%params)
+										forblock.appendStatement("[%(objectname)s addObject:[[[%(subtype)s alloc] initWithDictionary:entry] autorelease]]"%params)
+										
+										lastBlock.extend(forblock)
+										lastBlock.appendStatement("self.%(objectname)s = %(objectname)s"%params)
+								else:
+										lastBlock.append("I dont fucking know")
+						else:
+								lastBlock.appendStatement("self."+subObject.name+" = [[["+subObject.objCType()+" alloc] initWithDictionary:["+lastEntryName+" objectForKey:@\""+objectkey+"\"]] autorelease]")
+						while lastBlock and lastBlock is not initializationBlock:
+								lastBlock.superBlock.extend(lastBlock);
+								lastBlock.superBlock.append("")
+								lastBlock = lastBlock.superBlock;
+						
+				definition.append("")
+				definition.extend(initializationBlock)
+				definition.append("")
+				definition.appendStatement("return self")
+				return definition
+				
 class ModelObjectDeallocMethod(DeallocMethod):
 
 		def __init__(self,modelclass):
 				super(ModelObjectDeallocMethod,self).__init__(modelclass)
+				
+		def definition	(self):	
+				definition = CodeBlock("-("+self.returnType.objCPointer()+") "+self.fullname())
+				
+				for variable in self.objcclass.variables:
+						definition.appendStatement("TT_RELEASE_SAFELY(%s)"%variable.ivarname())
+				definition.extend(["","[super dealloc];"])
+
+				return definition
+				
 
 
-class DescriptionMethod(ObjCMethod):
+class ModelObjectDescriptionMethod(ObjCMethod):
 		
 		def __init__(self,modelclass):
-				super(DescriptionMethod,self).__init__(modelclass,"String",[],"description")					
+				super(ModelObjectDescriptionMethod,self).__init__(modelclass,"String",[],"description")					
 				
-		def methodBody(self):
-				methodBody = CodeList()
+		def definition(self):
+				definition = super(ModelObjectDescriptionMethod,self).definition()
 				descriptionString = "[NSString stringWithFormat:@\"\\n"
 			
 				for variable in self.objcclass.variables:
@@ -55,10 +152,13 @@ class DescriptionMethod(ObjCMethod):
 						descriptionString += "," +variable.ivarname()
 				
 				
-				descriptionString += "];"
-				
-				methodBody.append("return "+descriptionString)
-				return methodBody
+				descriptionString += "]"
+			
+				definition.appendStatement("return "+descriptionString)
+				return definition
+		
+		def declaration(self):
+				return None
 
 
 class ModelObject(object):
@@ -87,8 +187,13 @@ class BaseObject(object):
 				self.key = baseObjectKey	
 		
 		def description (self):
-				return "\t<BaseObject>" + " " + self.name +" Type:"+ self.type		
+				return "\t<BaseObject>" + " " + self.name +" Type:"+ self.type
 		
+		def isBaseType(self):
+				return ObjCType(self.type).isBaseType()
+				
+		def objCType(self):
+				return ObjCType(self.type).objCType()
 		
 
 
@@ -157,7 +262,7 @@ class ModelParser(object):
 								modelObject.addObject(BaseObject(objecttype,objectsubtype,objectname,objectkey))
 								
 								
-						self.modelObjects.append(modelObject)		
+						self.modelObjects.append(modelObject)
 		
 		def description(self):
 				description = ""
@@ -165,4 +270,38 @@ class ModelParser(object):
 						description+="\n"+modelObject.description()
 				return description
 				
+def main():
 		
+		if len(sys.argv)==1:
+				print "Usage ttmodelbarak.py <input-source-file-name>"
+		
+		filename = sys.argv[1];
+		
+		parser = ModelParser(filename)
+		
+		project = parser.projectname
+		hacker =  parser.parseVariable('hacker')
+		
+		if not project:
+				print 'WARNING:Project Name not found\n'				
+		
+		if hacker:
+				print 'Wassup '+hacker+' tt will now models code for you...\n'
+		else:
+				print 'Who are you Mr.Hacker?'
+		
+		modelObject = parser.modelObjects[1]
+		
+		#for modelObject in parser.modelObjects:
+		
+		mClass = ModelObjectClass(modelObject)
+		mHeaderFile = ObjCHeaderFile(mClass,project)
+		mHeaderFile.printout()
+		mImplementationFile = ObjCImplFile(mClass,project)
+		mImplementationFile.printout()	
+					
+		
+		
+if __name__ == '__main__':
+	main()
+			
