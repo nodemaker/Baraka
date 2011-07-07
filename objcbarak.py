@@ -123,8 +123,9 @@ class ObjCClass(object):
 				self.implImports = set([ObjCType(self.name)])
 	
 				self.headerImports = set()
+				
 				if not self.supertype.isBaseType():
-						imports.add(self.objcclass.supertype)
+						self.headerImports.add(self.supertype)
 						
 		def addInstanceVariable(self,objcvar,isProperty=True,attributes=None):
 				self.variables.append(objcvar)
@@ -158,12 +159,7 @@ class ObjCFile (File):
 		
 		def fileHeader(self):
 				return ["//","//\t"+self.filename(),"//\t"+self.projectname,"//"]	
-		
-		def printout(self):
-				print "\n\n\nFile:"+self.filename()
-				print "--------------------"
-				print "\n".join(["%s" % (line) for line in self.lines()])			
-
+					
 
 class ObjCHeaderFile (ObjCFile):
 
@@ -217,7 +213,7 @@ class ObjCHeaderFile (ObjCFile):
 				return lines
 		
 		def filename(self):
-			return self.objcclass.headerfilename()
+				return self.objcclass.headerfilename()
 
 
 class ObjCImplFile(ObjCFile):

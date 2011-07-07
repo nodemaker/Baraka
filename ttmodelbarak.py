@@ -1,7 +1,10 @@
-import sys,string,pdb
-import re
+import sys,string,pdb,re,os, imp
 
 from objcbarak import *
+from parser import *
+
+modelobjectdir = "DataObjects"
+
 dateFormat = "yyyy-MM-dd'T'HH:mm:ssZZ"
 
 class ModelObjectClass(ObjCClass):
@@ -76,7 +79,7 @@ class ModelObjectInitMethod(InitMethod):
 										ifblock.appendStatement("NSDictionary* %(newDictName)s = [%(lastDictName)s objectForKey:@\"%(key)s\"]"%params)
 										lastEntryName = params["newDictName"]
 								elif subObject.objCType() is "NSArray":
-										ifblock.appendStatement("NSArray* %(newArrayName)s = [%(lastDictName)s objectForKey::@\"%(key)s\"]"%params)
+										ifblock.appendStatement("NSArray* %(newArrayName)s = [%(lastDictName)s objectForKey:@\"%(key)s\"]"%params)
 										lastEntryName = params["newArrayName"]
 								
 								lastBlock = ifblock		
@@ -197,26 +200,15 @@ class BaseObject(object):
 		
 
 
-class ModelParser(object):
+class ModelParser(BarakaParser):
 		
 		def __init__(self,filename):
 				
-				self.text = open(filename, 'r').read()
-				self.projectname = self.parseVariable('project')
+				super(ModelParser,self).__init__(filename)
 				self.modelObjects = []
-				self.parseObjects()
 				
-		def objects (self):
-				return self.modelObjects			
-		
-		def parseVariable (self,varname):
-		
-				varnameMatch = re.search(r'('+varname+')\s(.+)',self.text,re.IGNORECASE)
-				if varnameMatch:
-						return varnameMatch.group(2)
-				else:
-						return None
-		
+				self.parseObjects()
+			
 		def parseObjects (self):
 				rawObjects = re.findall(r"Object\s([\w ]*)\s+(.*?)(?:(?:\nEnd\s*\n)|\Z)",self.text,re.DOTALL)
 				
@@ -269,38 +261,79 @@ class ModelParser(object):
 				for modelObject in self.modelObjects:
 						description+="\n"+modelObject.description()
 				return description
+
+class dotdict(dict):
+    def __getattr__(self, attr):
+        return self.get(attr, None)
+    __setattr__= dict.__setitem__
+    __delattr__= dict.__delitem__
+
 				
 def main():
 		
 		if len(sys.argv)==1:
 				print "Usage ttmodelbarak.py <input-source-file-name>"
-		
-		filename = sys.argv[1];
-		
-		parser = ModelParser(filename)
-		
-		project = parser.projectname
-		hacker =  parser.parseVariable('hacker')
-		
-		if not project:
-				print 'WARNING:Project Name not found\n'				
-		
-		if hacker:
-				print 'Wassup '+hacker+' tt will now models code for you...\n'
-		else:
-				print 'Who are you Mr.Hacker?'
-		
-		modelObject = parser.modelObjects[1]
-		
-		#for modelObject in parser.modelObjects:
-		
-		mClass = ModelObjectClass(modelObject)
-		mHeaderFile = ObjCHeaderFile(mClass,project)
-		mHeaderFile.printout()
-		mImplementationFile = ObjCImplFile(mClass,project)
-		mImplementationFile.printout()	
+				sys.exit()
 					
+		if not os.path.exists(sys.argv[1]):
+				print "\nERROR: File %s does not exist"%sys.argv[1]
+				print "EXITING..."
+				sys.exit()			
+					
+		print "\nGenerating Models from file %s..."%os.path.basename(sys.argv[1])
 		
+		parser = ModelParser(sys.argv[1])
+		
+		project = parser.projectName
+		hacker =  parser.hackerName
+		
+		abspath = os.path.abspath(sys.argv[1])
+		rootpath =  os.path.dirname(abspath)
+		
+		delint = False		
+		if parser.parseVariable('THREE20_PATH'):
+				lintscriptrootdir =rootpath+"/"+parser.parseVariable('THREE20_PATH')+"/"+"src/scripts"
+				if os.path.exists(lintscriptrootdir):
+						sys.path.append(lintscriptrootdir)
+						lint_mod = imp.load_source("lint",lintscriptrootdir+"/lint")
+						lint_mod.maxlinelength = 1000
+						delint = True						
+				else:
+						print "\nWARNING: lint script not found at path %s/lint"%lintscriptrootdir
+						print "WARNING: Wont be able to delint files"
+		else:			
+ 				print "\nWARNING: Three20 Path Not Found...Use Key \"THREE20_PATH\" to specify Three20 Path"
+ 				print "WARNING: Wont be able to delint files"
+ 				
+ 		global modelobjectdir
+		if parser.parseVariable('MODEL_OBJECT_DIR'):
+				modelobjectdir =  parser.parseVariable('MODEL_OBJECT_DIR')
+				modelobjectdirpath =rootpath +"/"+modelobjectdir
+		else:
+				modelobjectdirpath = rootpath +"/"+modelobjectdir
+				print "\nWARNING: Model Objects Destination Directory not found...Use Key \"MODEL_OBJECT_DIR\" to specify Model Objects Destination Directory "	
+				print "WARNING: Using %s as Model Objects Destination Directory"%modelobjectdirpath					
+		
+		if not os.path.exists(modelobjectdirpath):
+				print "\nCreating Directory %s"%modelobjectdirpath
+				os.makedirs(modelobjectdirpath)	
+ 			
+ 				
+ 		for modelObject in parser.modelObjects:
+ 				mClass = ModelObjectClass(modelObject)
+ 				
+ 				print ""
+ 				
+ 				mHeaderFile = ObjCHeaderFile(mClass,project)
+ 				mHeaderFile.generateFile(modelobjectdirpath)
+ 				if delint is True:
+ 						lint_mod.lint(mHeaderFile.filePath(modelobjectdirpath),dotdict({'delint': True}))
+ 				
+ 				mImplementationFile = ObjCImplFile(mClass,project)
+ 				mImplementationFile.generateFile(modelobjectdirpath)				
+				if delint is True:
+						lint_mod.lint(mImplementationFile.filePath(modelobjectdirpath),dotdict({'delint': True}))
+				
 		
 if __name__ == '__main__':
 	main()

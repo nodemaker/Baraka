@@ -1,6 +1,6 @@
+import os
 
 divider = "///////////////////////////////////////////////////////////////////////////////////////////////////"
-
 
 class File(object):
 		
@@ -11,7 +11,31 @@ class File(object):
 		
 		def write(self,line):
 				self.code.append(self.tab*self.level+line)
+				
+		def printout(self):
+				print "\n\n\nFile:"+self.filename()
+				print "--------------------"
+				print "\n".join(["%s" % (line) for line in self.lines()])		
 		
+		def filePath(self,rootdir):
+				return rootdir + "/" + self.filename()
+				
+		def generateFile(self,rootdir):					
+ 				if os.path.exists(self.filePath(rootdir)):
+ 					mode = "OVERWRITE"
+				else:
+					mode = "NEW"
+					
+				print "Generating File %(filename)s (%(mode)s)"%{'filename':self.filename(),'mode':mode}
+				
+				outputfile = open(self.filePath(rootdir),'w')
+				outputfile.write("\n".join(["%s" % (line) for line in self.lines()])	)		
+		
+		def lines(self):
+				return []
+				
+		def filename(self):
+				return None		 
 
 
 class CodeList(list):
