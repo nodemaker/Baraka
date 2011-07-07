@@ -1,5 +1,7 @@
-import sys,string,pdb,re,os, imp
+import sys,string,pdb,re,os,imp
+import pickle
 
+from optparse import OptionParser
 from objcbarak import *
 from parser import *
 
@@ -255,6 +257,56 @@ class ModelParser(BarakaParser):
 								
 								
 						self.modelObjects.append(modelObject)
+						
+		def generateOutputFiles(self,rootpath,modelobjectdirpath):
+				
+				print "\nGenerating Models from file %s..."%os.path.basename(sys.argv[1])
+				
+				project=self.projectName
+				delint = False		
+				if self.parseVariable('THREE20_PATH'):
+						lintscriptrootdir =rootpath+"/"+self.parseVariable('THREE20_PATH')+"/"+"src/scripts"
+						
+						if os.path.exists(lintscriptrootdir):
+								sys.path.append(lintscriptrootdir)
+								lint_mod = imp.load_source("lint",lintscriptrootdir+"/lint")
+								lint_mod.maxlinelength = 1000
+								delint = True						
+						else:
+								print "\nWARNING: lint script not found at path %s/lint"%lintscriptrootdir
+								print "WARNING: Wont be able to delint files"
+				else:
+						print "\nWARNING: Three20 Path Not Found...Use Key \"THREE20_PATH\" to specify Three20 Path"
+						print "WARNING: Wont be able to delint files"
+				
+				for modelObject in self.modelObjects:
+						
+						mClass = ModelObjectClass(modelObject)
+						print ""
+						
+						mHeaderFile = ObjCHeaderFile(mClass,project)
+						mHeaderFile.generateFile(modelobjectdirpath)
+						if delint is True:
+								lint_mod.lint(mHeaderFile.filePath(modelobjectdirpath),dotdict({'delint': True}))
+						
+						mImplementationFile = ObjCImplFile(mClass,project)
+						mImplementationFile.generateFile(modelobjectdirpath)				
+						if delint is True:
+								lint_mod.lint(mImplementationFile.filePath(modelobjectdirpath),dotdict({'delint': True}))
+											
+		def printOutputFiles(self):
+				
+				project=self.projectName
+				for modelObject in self.modelObjects:
+						
+						mClass = ModelObjectClass(modelObject)
+						mHeaderFile = ObjCHeaderFile(mClass,project)
+						mHeaderFile.printout()
+						
+						mImplementationFile = ObjCImplFile(mClass,project)
+						mImplementationFile.printout()
+				
+		
 		
 		def description(self):
 				description = ""
@@ -263,47 +315,39 @@ class ModelParser(BarakaParser):
 				return description
 
 class dotdict(dict):
-    def __getattr__(self, attr):
-        return self.get(attr, None)
-    __setattr__= dict.__setitem__
-    __delattr__= dict.__delitem__
+    	def __getattr__(self, attr):
+        	return self.get(attr, None)
+    	__setattr__= dict.__setitem__
+    	__delattr__= dict.__delitem__
 
 				
 def main():
+		usage = '''%prog <inputfilename>
 		
-		if len(sys.argv)==1:
-				print "Usage ttmodelbarak.py <input-source-file-name>"
+		The Three20Model Barak.
+		Generate Three20 Model Files.'''
+
+		parser = OptionParser(usage = usage)
+		parser.add_option("-p", "--print", dest="print",
+	                  help="Just Display Generated Source Files (for debugging purposes)",
+	                  action="store_true")
+	                  
+		(options, args) = parser.parse_args()
+		
+		if len(args)==0:
+				print "Usage ttmodelbarak.py <options> <input-source-file-name>"
 				sys.exit()
 					
-		if not os.path.exists(sys.argv[1]):
-				print "\nERROR: File %s does not exist"%sys.argv[1]
+		if not os.path.exists(args[0]):
+				print "\nERROR: File %s does not exist"%args[0]
 				print "EXITING..."
 				sys.exit()			
 					
-		print "\nGenerating Models from file %s..."%os.path.basename(sys.argv[1])
 		
-		parser = ModelParser(sys.argv[1])
+		parser = ModelParser(args[0])
 		
-		project = parser.projectName
-		hacker =  parser.hackerName
-		
-		abspath = os.path.abspath(sys.argv[1])
+		abspath = os.path.abspath(args[0])
 		rootpath =  os.path.dirname(abspath)
-		
-		delint = False		
-		if parser.parseVariable('THREE20_PATH'):
-				lintscriptrootdir =rootpath+"/"+parser.parseVariable('THREE20_PATH')+"/"+"src/scripts"
-				if os.path.exists(lintscriptrootdir):
-						sys.path.append(lintscriptrootdir)
-						lint_mod = imp.load_source("lint",lintscriptrootdir+"/lint")
-						lint_mod.maxlinelength = 1000
-						delint = True						
-				else:
-						print "\nWARNING: lint script not found at path %s/lint"%lintscriptrootdir
-						print "WARNING: Wont be able to delint files"
-		else:			
- 				print "\nWARNING: Three20 Path Not Found...Use Key \"THREE20_PATH\" to specify Three20 Path"
- 				print "WARNING: Wont be able to delint files"
  				
  		global modelobjectdir
 		if parser.parseVariable('MODEL_OBJECT_DIR'):
@@ -317,23 +361,11 @@ def main():
 		if not os.path.exists(modelobjectdirpath):
 				print "\nCreating Directory %s"%modelobjectdirpath
 				os.makedirs(modelobjectdirpath)	
- 			
- 				
- 		for modelObject in parser.modelObjects:
- 				mClass = ModelObjectClass(modelObject)
- 				
- 				print ""
- 				
- 				mHeaderFile = ObjCHeaderFile(mClass,project)
- 				mHeaderFile.generateFile(modelobjectdirpath)
- 				if delint is True:
- 						lint_mod.lint(mHeaderFile.filePath(modelobjectdirpath),dotdict({'delint': True}))
- 				
- 				mImplementationFile = ObjCImplFile(mClass,project)
- 				mImplementationFile.generateFile(modelobjectdirpath)				
-				if delint is True:
-						lint_mod.lint(mImplementationFile.filePath(modelobjectdirpath),dotdict({'delint': True}))
-				
+ 		
+ 		if options.__dict__['print']:	
+ 				parser.printOutputFiles()
+ 		else:				
+ 				parser.generateOutputFiles(rootpath,modelobjectdirpath)
 		
 if __name__ == '__main__':
 	main()
