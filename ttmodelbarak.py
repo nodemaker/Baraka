@@ -9,6 +9,8 @@ modelobjectdir = "DataObjects"
 
 dateFormat = "yyyy-MM-dd'T'HH:mm:ssZZ"
 
+parser = None
+
 class ModelObjectClass(ObjCClass):
 
 		def __init__(self,modelobject):
@@ -29,10 +31,10 @@ class ModelObjectClass(ObjCClass):
 							
 						self.addInstanceVariable(variable,True,attributes)
 				
-				self.initMethod = ModelObjectInitMethod(self)
-				self.deallocMethod = ModelObjectDeallocMethod(self)
+				self.addMethod(ModelObjectStaticInitMethod(self))
+				self.addMethod(ModelObjectInitMethod(self))
+				self.addMethod(ModelObjectDeallocMethod(self))
 				self.addMethod(ModelObjectDescriptionMethod(self))
-		
 		
 		def hasDateSubObject (self):
 				for variable in self.variables:
@@ -165,13 +167,34 @@ class ModelObjectDescriptionMethod(ObjCMethod):
 		def declaration(self):
 				return None
 
-
+class ModelObjectStaticInitMethod(ObjCMethod):
+		
+		def __init__(self,modelclass):
+				super(ModelObjectStaticInitMethod,self).__init__(modelclass,modelclass.name,[ObjCVar("Dictionary","entry")],"objectWithDictionary:",ObjCMethodType.staticMethod)
+		
+		def definition(self):
+				definition = super(ModelObjectStaticInitMethod,self).definition()
+				
+				submodelobjects = parser. getModelObjectsWithSuperModelObject(self.objcclass.modelobject)
+				
+				for modelObject in submodelobjects:
+						params = {'field':modelObject.qualification.field,'qualifier':modelObject.qualification.qualifier}
+						ifblock = CodeBlock("if([[entry objectForKey:@\"%(field)s\"] isEqualToString:@\"%(qualifier)s\"])"%params)
+						ifblock.appendStatement("return [%s objectWithDictionary:entry]"%modelObject.name)
+						definition.extend(ifblock)
+						self.objcclass.implImports.add(ObjCType(modelObject.name))
+										
+				definition.appendStatement("return [[[%s alloc] initWithDictionary:entry] autorelease]"%self.objcclass.name)
+				
+				return definition
+				
 class ModelObject(object):
 		
-		def __init__ (self,objectName,objectType):
+		def __init__ (self,objectName,objectType,qualification):
 				self.name = objectName
 				self.type = objectType
-				self.subObjects = []	
+				self.subObjects = []
+				self.qualification = qualification	
 		
 		def addObject(self,subObject):
 				self.subObjects.append(subObject)
@@ -181,6 +204,13 @@ class ModelObject(object):
 				for subObject in self.subObjects:
 						description+="\n"+subObject.description()
 				return description
+
+class ObjectQualification(object):
+		def __init__(self,qualificationString):
+				split = re.split(r'=',qualificationString)
+				self.field = split[0]
+				self.qualifier = split[1] 
+				self.qualificationString = qualificationString
 
 
 class BaseObject(object):
@@ -205,35 +235,50 @@ class BaseObject(object):
 class ModelParser(BarakaParser):
 		
 		def __init__(self,filename):
-				
 				super(ModelParser,self).__init__(filename)
+				
 				self.modelObjects = []
 				
-				self.parseObjects()
+				self.parseObjects()			
+		
 			
 		def parseObjects (self):
-				rawObjects = re.findall(r"Object\s([\w ]*)\s+(.*?)(?:(?:\nEnd\s*\n)|\Z)",self.text,re.DOTALL)
+		
+				rawObjects = re.findall(r"[\n\A](Object.*?)(?:(?:\nEnd))",self.text,re.DOTALL)
 				
 				for object in rawObjects:
 						
-						interfaces = re.split(r'\W+',object[0])
-						objectclass = interfaces[0]
+						lines = re.split(r'[\n\t\r]+',object)
 						
-						if(len(interfaces)<2):
-								superclass = "Object"
+						objectdeclaration = re.split(r'[\s+\t+^$\(\)]',lines[0])
+						
+						objectclass = objectdeclaration[1]
+						
+						if len(objectdeclaration)>2:
+								superclass = objectdeclaration[2] 
 						else:
-								superclass = interfaces[1]  	
+								superclass = "Object"
 						
-						modelObject = ModelObject(objectclass,superclass)
+						if len(objectdeclaration)>3:
+								qualification = ObjectQualification(objectdeclaration[3]) 
+						else:
+								qualification = None
+								
+						if not qualification and superclass is not "Object":
+								print "\nERROR: error parsing object %s.An object with a non object superclass must have a qualification"%objectclass
+								sys.exit(0) 		
+												
+						modelObject = ModelObject(objectclass,superclass,qualification)
 						
 						subobjects = re.split(r'[\n\t]+',object[1])
 						
-						for subobject in subobjects:
+						for subobject in lines[1:]:
 								
 								split = re.findall(r'[\w<>\(\):]+',subobject)
 								
 								if(len(split)<2):
 									print "ERROR: could not parse subobject declaration -> "+subobject+" in Object "+objectclass
+									sys.exit()
 								
 								objecttypesplit = re.findall(r'\w+',split[0])
 								
@@ -255,9 +300,18 @@ class ModelParser(BarakaParser):
 								
 								modelObject.addObject(BaseObject(objecttype,objectsubtype,objectname,objectkey))
 								
-								
 						self.modelObjects.append(modelObject)
 						
+		def getModelObjectsWithSuperModelObject(self,superObject):
+				
+				objectlist = []
+				
+				for modelObject in self.modelObjects:
+						if modelObject.type == superObject.name:
+								objectlist.append(modelObject)
+								
+				return objectlist
+		
 		def generateOutputFiles(self,rootpath,modelobjectdirpath):
 				
 				print "\nGenerating Models from file %s..."%os.path.basename(sys.argv[1])
@@ -327,12 +381,15 @@ def main():
 		The Three20Model Barak.
 		Generate Three20 Model Files.'''
 
-		parser = OptionParser(usage = usage)
-		parser.add_option("-p", "--print", dest="print",
-	                  help="Just Display Generated Source Files (for debugging purposes)",
-	                  action="store_true")
-	                  
-		(options, args) = parser.parse_args()
+		optparser = OptionParser(usage = usage)
+		optparser.add_option("-p", "--print", dest="print",
+						help="Just Display Generated Source Files (for debugging purposes)",
+						action="store_true")
+		optparser.add_option("-d", "--debug", dest="debug",
+						help="Dont do anything..Just Parse (for debugging purposes)",
+						action="store_true")          
+		
+		(options, args) = optparser.parse_args()
 		
 		if len(args)==0:
 				print "Usage ttmodelbarak.py <options> <input-source-file-name>"
@@ -343,7 +400,7 @@ def main():
 				print "EXITING..."
 				sys.exit()			
 					
-		
+		global parser
 		parser = ModelParser(args[0])
 		
 		abspath = os.path.abspath(args[0])
@@ -364,7 +421,7 @@ def main():
  		
  		if options.__dict__['print']:	
  				parser.printOutputFiles()
- 		else:				
+ 		elif not options.__dict__['debug']:
  				parser.generateOutputFiles(rootpath,modelobjectdirpath)
 		
 if __name__ == '__main__':

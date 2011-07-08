@@ -62,14 +62,18 @@ class ObjCProperty(object):
 		def synthesizer (self):
 				return  "@synthesize "+self.objcvar.name+"="+self.objcvar.ivarname()+";"		 				
 
+class ObjCMethodType:
+		staticMethod=1
+		instanceMethod=2
 
 class ObjCMethod (object):
 	
-		def __init__(self,objcclass,returnType,variables,methodname):
+		def __init__(self,objcclass,returnType,variables,methodname,methodType=ObjCMethodType.instanceMethod):
 				self.name=methodname
 				self.returnType=ObjCType(returnType)
 				self.variables=variables
 				self.objcclass=objcclass
+				self.methodType = methodType
 		
 		def fullname(self):
 				if not self.variables:
@@ -86,12 +90,18 @@ class ObjCMethod (object):
 								fullname+= part+"("+variable.type.objCPointer()+")"+variable.name
 								
 				return fullname				
+		
+		def methodTypeIdentifier(self):
+				if self.methodType is ObjCMethodType.instanceMethod:
+					return "-"
+				else:
+					return "+"
 				
 		def declaration (self):
-				return "-("+self.returnType.objCPointer()+") "+self.fullname()+";"
+				return self.methodTypeIdentifier() +"("+self.returnType.objCPointer()+") "+self.fullname()+";"
 		
 		def definition	(self):	
-				definition = CodeBlock("-("+self.returnType.objCPointer()+") "+self.fullname())
+				definition = CodeBlock(self.methodTypeIdentifier()+"("+self.returnType.objCPointer()+") "+self.fullname())
 				return definition
 				
 class InitMethod (ObjCMethod):
@@ -108,7 +118,9 @@ class DeallocMethod (ObjCMethod):
 				definition = super(DeallocMethod,self).definition()
 				definition.extend(["","[super dealloc];",""])
 				return definition
-						
+		
+		def declaration (self):
+				return None				
 
 
 class ObjCClass(object):
@@ -119,11 +131,9 @@ class ObjCClass(object):
 				self.variables = []
 				self.properties = []
 				self.methods = []
-				self.initMethod = InitMethod(self)
-				self.implImports = set([ObjCType(self.name)])
-	
-				self.headerImports = set()
 				
+				self.implImports = set([ObjCType(self.name)])
+				self.headerImports = set()
 				if not self.supertype.isBaseType():
 						self.headerImports.add(self.supertype)
 						
@@ -184,8 +194,6 @@ class ObjCHeaderFile (ObjCFile):
 				
 				interface.append("")
 				
-				interface.append(self.objcclass.initMethod.declaration())
-																				
 				for method in self.objcclass.methods:			
 					interface.extend(["",method.declaration()])	
 					
@@ -223,10 +231,6 @@ class ObjCImplFile(ObjCFile):
 				implementation.append ("@implementation "+self.objcclass.name)
 				implementation.append ("")
 				implementation.extend (self.synthesizers())
-				implementation.extend (["",divider])
-				implementation.extend (self.objcclass.initMethod.definition())
-				implementation.extend (["",divider])
-				implementation.extend (self.objcclass.deallocMethod.definition())
 				
 				for method in self.objcclass.methods:
 					implementation.extend(["",divider])			
