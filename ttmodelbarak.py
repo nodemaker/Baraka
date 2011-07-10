@@ -1,20 +1,26 @@
 import sys,string,pdb,re,os,imp
 import pickle
 
+dateFormat = "yyyy-MM-dd'T'HH:mm:ssZZ"
+
 from optparse import OptionParser
 from objcbarak import *
 from parser import *
 
-modelobjectdir = "DataObjects"
 
-dateFormat = "yyyy-MM-dd'T'HH:mm:ssZZ"
 
-parser = None
+class dotdict(dict):
+    	def __getattr__(self, attr):
+        	return self.get(attr, None)
+    	__setattr__= dict.__setitem__
+    	__delattr__= dict.__delitem__
+
 
 class ModelObjectClass(ObjCClass):
 
-		def __init__(self,modelobject):
+		def __init__(self,modelobject,parser):
 				
+				self.parser = parser
 				self.modelobject = modelobject
 				super(ModelObjectClass,self).__init__(modelobject.name,modelobject.type)
 		
@@ -31,7 +37,7 @@ class ModelObjectClass(ObjCClass):
 							
 						self.addInstanceVariable(variable,True,attributes)
 				
-				self.addMethod(ModelObjectStaticInitMethod(self))
+				self.addMethod(ModelObjectStaticInitMethod(self,parser))
 				self.addMethod(ModelObjectInitMethod(self))
 				self.addMethod(ModelObjectDeallocMethod(self))
 				self.addMethod(ModelObjectDescriptionMethod(self))
@@ -41,6 +47,7 @@ class ModelObjectClass(ObjCClass):
 						if variable.type.objCType() is "NSDate":
 								return True
 				return False											
+	
 
 class ModelObjectInitMethod(InitMethod):
 
@@ -169,13 +176,14 @@ class ModelObjectDescriptionMethod(ObjCMethod):
 
 class ModelObjectStaticInitMethod(ObjCMethod):
 		
-		def __init__(self,modelclass):
+		def __init__(self,modelclass,parser):
 				super(ModelObjectStaticInitMethod,self).__init__(modelclass,modelclass.name,[ObjCVar("Dictionary","entry")],"objectWithDictionary:",ObjCMethodType.staticMethod)
+				self.parser = parser
 		
 		def definition(self):
 				definition = super(ModelObjectStaticInitMethod,self).definition()
 				
-				submodelobjects = parser. getModelObjectsWithSuperModelObject(self.objcclass.modelobject)
+				submodelobjects = self.parser.getModelObjectsWithSuperModelObject(self.objcclass.modelobject)
 				
 				for modelObject in submodelobjects:
 						params = {'field':modelObject.qualification.field,'qualifier':modelObject.qualification.qualifier}
@@ -212,6 +220,18 @@ class ObjectQualification(object):
 				self.qualifier = split[1] 
 				self.qualificationString = qualificationString
 
+class Model(object):
+	
+		def __init__(self,modelname,modelsuper,modeltype,input,output):
+				self.modelname = modelname
+				self.modeltype = modeltype
+				self.modelsuper = modelsuper
+				
+class ModelInput(object):
+		
+		def __init__(self,inputtype,inputstring):
+				self.inputtype = inputtype
+				self.inputstring = inputstring				
 
 class BaseObject(object):
 		
@@ -239,9 +259,40 @@ class ModelParser(BarakaParser):
 				
 				self.modelObjects = []
 				
-				self.parseObjects()			
+				self.models = []
+				
+				self.parseObjects()	
+				
+				self.parseModels()		
 		
+		def parseModels  (self):
+				
+				rawModels = re.findall(r"[\n\A](Model.*?)(?:(?:\nEnd))",self.text,re.DOTALL)
+				
+				for rawModel in rawModels:
+					
+						lines = re.split(r'[\n\t\r]+',rawModel)
+						
+						modeldeclaration = re.split(r'[\s+\t+^$]',lines[0])
+						
+						if len(modeldeclaration)>2:
+								superclass = modeldeclaration[2]
+						else:
+								superclass = "TTURLRequestModel"
+						
+						modelclasssplit = re.split(r'[<>]',modeldeclaration[1])
+						
+						modelclass = modelclasssplit[0]
+
+						if len(modelclasssplit)>1:
+								modeltype = modelclasssplit[1]
+						else:
+								modeltype = None
+						
+						model = Model(modelclass,superclass,modeltype)
 			
+								 
+						
 		def parseObjects (self):
 		
 				rawObjects = re.findall(r"[\n\A](Object.*?)(?:(?:\nEnd))",self.text,re.DOTALL)
@@ -335,7 +386,7 @@ class ModelParser(BarakaParser):
 				
 				for modelObject in self.modelObjects:
 						
-						mClass = ModelObjectClass(modelObject)
+						mClass = ModelObjectClass(modelObject,self)
 						print ""
 						
 						mHeaderFile = ObjCHeaderFile(mClass,project)
@@ -353,7 +404,7 @@ class ModelParser(BarakaParser):
 				project=self.projectName
 				for modelObject in self.modelObjects:
 						
-						mClass = ModelObjectClass(modelObject)
+						mClass = ModelObjectClass(modelObject,self)
 						mHeaderFile = ObjCHeaderFile(mClass,project)
 						mHeaderFile.printout()
 						
@@ -367,63 +418,4 @@ class ModelParser(BarakaParser):
 				for modelObject in self.modelObjects:
 						description+="\n"+modelObject.description()
 				return description
-
-class dotdict(dict):
-    	def __getattr__(self, attr):
-        	return self.get(attr, None)
-    	__setattr__= dict.__setitem__
-    	__delattr__= dict.__delitem__
-
-				
-def main():
-		usage = '''%prog <inputfilename>
-		
-		The Three20Model Barak.
-		Generate Three20 Model Files.'''
-
-		optparser = OptionParser(usage = usage)
-		optparser.add_option("-p", "--print", dest="print",
-						help="Just Display Generated Source Files (for debugging purposes)",
-						action="store_true")
-		optparser.add_option("-d", "--debug", dest="debug",
-						help="Dont do anything..Just Parse (for debugging purposes)",
-						action="store_true")          
-		
-		(options, args) = optparser.parse_args()
-		
-		if len(args)==0:
-				print "Usage ttmodelbarak.py <options> <input-source-file-name>"
-				sys.exit()
-					
-		if not os.path.exists(args[0]):
-				print "\nERROR: File %s does not exist"%args[0]
-				print "EXITING..."
-				sys.exit()			
-					
-		global parser
-		parser = ModelParser(args[0])
-		
-		abspath = os.path.abspath(args[0])
-		rootpath =  os.path.dirname(abspath)
- 				
- 		global modelobjectdir
-		if parser.parseVariable('MODEL_OBJECT_DIR'):
-				modelobjectdir =  parser.parseVariable('MODEL_OBJECT_DIR')
-				modelobjectdirpath =rootpath +"/"+modelobjectdir
-		else:
-				modelobjectdirpath = rootpath +"/"+modelobjectdir
-				print "\nWARNING: Model Objects Destination Directory not found...Use Key \"MODEL_OBJECT_DIR\" to specify Model Objects Destination Directory "	
-				print "WARNING: Using %s as Model Objects Destination Directory"%modelobjectdirpath					
-		
-		if not os.path.exists(modelobjectdirpath):
-				print "\nCreating Directory %s"%modelobjectdirpath
-				os.makedirs(modelobjectdirpath)	
- 		
- 		if options.__dict__['print']:	
- 				parser.printOutputFiles()
- 		elif not options.__dict__['debug']:
- 				parser.generateOutputFiles(rootpath,modelobjectdirpath)
-		
-if __name__ == '__main__':
-	main()
 			
