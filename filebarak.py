@@ -2,6 +2,14 @@ import os
 
 divider = "///////////////////////////////////////////////////////////////////////////////////////////////////"
 
+def firstuppercase(string):
+	if string:
+			return string[0].upper()+string[1:]
+	else:
+			return None			
+
+				
+
 class File(object):
 		
 		def __init__(self,tab="\t"):

@@ -12,10 +12,18 @@ ObjC_Classes = {'Dictionary':'NSDictionary',
 				'None': 'void',
 				}
 				
+Mutable_Classes = {'NSDictionary':'NSMutableDictionary',
+				   'NSArray':'NSMutableArray',
+				   'NSString':'NSMutableString',
+				   'NSSet':'NSMutableSet',
+				  }				
+
+
 class ObjCType (object):
 
-		def __init__(self,typename):
+		def __init__(self,typename,mutable=False):
 				self.name=typename
+				self.mutable = mutable
 			
 		def isBaseType(self):
 				if self.name in ObjC_Classes:
@@ -23,9 +31,15 @@ class ObjCType (object):
  				else:
 						return False			
 		
-		def objCType(self):
+		def objCType(self,mute=True):
 				if self.isBaseType():
-						return ObjC_Classes[self.name]
+						if not self.mutable or not mute:
+								return ObjC_Classes[self.name]
+						elif ObjC_Classes[self.name] in Mutable_Classes:
+								return Mutable_Classes[ObjC_Classes[self.name]]
+						else:
+								return ObjC_Classes[self.name]
+								print "\nWARNING:Type '%s' has no Objective C Mutable class"%self.name				
 				else:
 						return self.name
 						
@@ -37,8 +51,8 @@ class ObjCType (object):
 					
 class ObjCVar(object):
 		
-		def __init__(self,type,name):
-				self.type = ObjCType(type)
+		def __init__(self,type,name,mutable=False):
+				self.type = ObjCType(type,mutable)
 				self.name = name
 		
 		def ivarname(self):
@@ -57,7 +71,10 @@ class ObjCProperty(object):
 				self.objcvar = objcvar		
 		
 		def declaration(self):
-				return  "@property(" + string.join(self.attributes,",") + ") " + self.objcvar.type.objCType() + "* " + self.objcvar.name+";" 
+				if "readonly" in self.attributes:
+						return  "@property(" + string.join(self.attributes,",") + ") " + self.objcvar.type.objCType(False) + "* " + self.objcvar.name+";" 
+				else:
+						return  "@property(" + string.join(self.attributes,",") + ") " + self.objcvar.type.objCType() + "* " + self.objcvar.name+";" 
 				
 		def synthesizer (self):
 				return  "@synthesize "+self.objcvar.name+"="+self.objcvar.ivarname()+";"		 				
@@ -105,9 +122,23 @@ class ObjCMethod (object):
 				return definition
 				
 class InitMethod (ObjCMethod):
-		
 		def __init__(self,objcclass,variables=[],methodname="init"):
-				super(InitMethod,self).__init__(objcclass,"Generic",variables,methodname)	
+				if(len(variables)>0):
+						methodname+="With"
+				
+				for variable in variables:
+						methodname+=firstuppercase(variable.name)+":"	
+							
+				super(InitMethod,self).__init__(objcclass,"Generic",variables,methodname)
+				
+		def definition(self):	
+				definition = super(InitMethod,self).definition()		
+				ifblock = CodeBlock("if (self = [super init])")
+				
+				for variable in self.variables:
+						ifblock.appendStatement("self.%(var)s = %(var)s"%{'var':variable.name})				
+				definition.extend(ifblock)
+				return definition
 
 class DeallocMethod (ObjCMethod):
 
@@ -115,13 +146,42 @@ class DeallocMethod (ObjCMethod):
 				super(DeallocMethod,self).__init__(objcclass,"None",[],"dealloc")
 				
 		def definition(self):
-				definition = super(DeallocMethod,self).definition()
-				definition.extend(["","[super dealloc];",""])
+				definition = CodeBlock("-("+self.returnType.objCPointer()+") "+self.fullname())
+				
+				for variable in self.objcclass.variables:
+						definition.appendStatement("TT_RELEASE_SAFELY(%s)"%variable.ivarname())
+				definition.extend(["","[super dealloc];"])
+
 				return definition
 		
 		def declaration (self):
 				return None				
 
+class DescriptionMethod(ObjCMethod):
+		
+		def __init__(self,modelclass):
+				super(DescriptionMethod,self).__init__(modelclass,"String",[],"description")					
+				
+		def definition(self):
+				definition = super(DescriptionMethod,self).definition()
+				descriptionString = "[NSString stringWithFormat:@\"\\n"
+			
+				for variable in self.objcclass.variables:
+						descriptionString += variable.name+" - %@\\n"
+				
+				descriptionString += "\""
+				
+				for variable in self.objcclass.variables:
+						descriptionString += "," +variable.ivarname()
+				
+				
+				descriptionString += "]"
+			
+				definition.appendStatement("return "+descriptionString)
+				return definition
+		
+		def declaration(self):
+				return None
 
 class ObjCClass(object):
 	
