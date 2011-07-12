@@ -16,7 +16,12 @@ Mutable_Classes = {'NSDictionary':'NSMutableDictionary',
 				   'NSArray':'NSMutableArray',
 				   'NSString':'NSMutableString',
 				   'NSSet':'NSMutableSet',
-				  }				
+				  }				  				
+BaseTypes = ['Generic','None','BOOL']
+
+def add_base_type(type):
+		global BaseTypes
+		BaseTypes.append(type)
 
 
 class ObjCType (object):
@@ -44,7 +49,7 @@ class ObjCType (object):
 						return self.name
 						
 		def objCPointer(self):
-				if self.name is not 'Generic' and self.name is not 'None':
+				if self.name not in BaseTypes:
 					return self.objCType()+"*"
 				else:					
 					return self.objCType()
@@ -96,7 +101,8 @@ class ObjCMethod (object):
 				if not self.variables:
 						fullname = self.name
 				else:
-						methodparts = re.findall(r'.+:',self.name)
+						methodparts = re.findall(r'.+?:',self.name)
+						print methodparts
 						if not methodparts:
 								fullname = self.name
 						else:
@@ -104,8 +110,8 @@ class ObjCMethod (object):
 							variable_index=0
 							for part in methodparts:
 								variable = self.variables[variable_index]
-								fullname+= part+"("+variable.type.objCPointer()+")"+variable.name
-								
+								fullname+= part+"("+variable.type.objCPointer()+")"+variable.name+" "
+								variable_index = variable_index+1
 				return fullname				
 		
 		def methodTypeIdentifier(self):

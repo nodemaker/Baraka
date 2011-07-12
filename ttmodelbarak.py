@@ -6,6 +6,7 @@ from objcbarak import *
 class ModelClass(ObjCClass):
 
 		def __init__(self,model,parser):
+				add_base_type("TTURLRequestCachePolicy")
 				
 				self.parser = parser
 				self.model = model
@@ -39,17 +40,42 @@ class ModelClass(ObjCClass):
 								self.addInstanceVariable(allvariable,False,None)
 				
 				self.addMethod(DeallocMethod(self))	
-				self.addMethod(DescriptionMethod(self))			
+				self.addMethod(ModelLoadMoreMethod(self))
+				self.addMethod(ModelDidFinishLoadMethod(self))		
+				self.addMethod(DescriptionMethod(self))
+					
 						
 		def isOutputInFilters(self,outputname):
 				for filter in self.model.filters:
 						if filter.name == outputname:
 								return True;
 				return False;
-		
-				
-							
 
+class ModelLoadMoreMethod(ObjCMethod):
+		
+		def __init__(self,modelclass):
+				super(ModelLoadMoreMethod,self).__init__(modelclass,"None",[ObjCVar("TTURLRequestCachePolicy","cachePolicy"),ObjCVar("BOOL","more")],"load:more:")		
+		
+		def declaration(self):
+				return None;
+		
+		def definition(self):
+				definition = super(ModelLoadMoreMethod,self).definition()
+				definition.appendStatement("NSString* url = nil")
+				return definition		
+
+class ModelDidFinishLoadMethod(ObjCMethod):				
+				
+		def __init__(self,modelclass):
+				super(ModelDidFinishLoadMethod,self).__init__(modelclass,"None",[ObjCVar("Dictionary","result")],"requestDidFinishLoadJSON:")
+		
+		def declaration(self):
+				return None;
+		
+		def definition(self):
+				definition = super(ModelDidFinishLoadMethod,self).definition()
+				return definition			
+				
 class Model(object):
 	
 		def __init__(self,modelname,modelsuper):
