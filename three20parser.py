@@ -5,21 +5,26 @@ from objcbarak import *
 from ttmodelbarak import *
 from ttmodelobjectbarak import *
 
+def print_sub_section(parser,section,sub):
+		print sub.title()+"\n\t"+"\n\t".join(parser.parseSubSection(section,sub))
 
-class ModelParser(BarakaParser):
+class Three20Parser(Parser):
 		
 		def __init__(self,filename):
-				super(ModelParser,self).__init__(filename)
-				
-				self.modelObjects = []
-				
-				self.models = []
-				
+				super(Three20Parser,self).__init__(filename)
 				self.parseObjects()	
-				
-				self.parseModels()	
+				#self.parseModels()	
 		
-		def parseModels  (self):
+		
+		def parseObjects (self):
+		
+				objects = self.parseSections("object")
+				for object in objects:
+					print_sub_section(self,object,"input")
+					print_sub_section(self,object,"output")
+					
+		
+		def parseModels(self):
 				
 				rawModels = re.findall(r"[\n\A](Model.*?)(?:(?:\nEnd))",self.text,re.DOTALL)
 				
@@ -75,67 +80,6 @@ class ModelParser(BarakaParser):
 														filterkey = [key for key in filternamesplit[1:] if key]
 												model.filters.append(BaseObject(filtertype,None,filtername,filterkey))	
 						self.models.append(model)					
-												
-						
-		def parseObjects (self):
-		
-				rawObjects = re.findall(r"[\n\A](Object.*?)(?:(?:\nEnd))",self.text,re.DOTALL)
-				
-				for object in rawObjects:
-						
-						lines = re.split(r'[\n\t\r]+',object)
-						
-						objectdeclaration = re.split(r'[\s+\t+^$\(\)]',lines[0])
-						
-						objectclass = objectdeclaration[1]
-						
-						if len(objectdeclaration)>2:
-								superclass = objectdeclaration[2] 
-						else:
-								superclass = "Object"
-						
-						if len(objectdeclaration)>3:
-								qualification = ObjectQualification(objectdeclaration[3]) 
-						else:
-								qualification = None
-								
-						if not qualification and superclass is not "Object":
-								print "\nERROR: error parsing object %s.An object with a non object superclass must have a qualification"%objectclass
-								sys.exit(0) 		
-												
-						modelObject = ModelObject(objectclass,superclass,qualification)
-						
-						subobjects = re.split(r'[\n\t]+',object[1])
-						
-						for subobject in lines[1:]:
-								
-								split = re.findall(r'[\w<>\(\):]+',subobject)
-								
-								if(len(split)<2):
-									print "ERROR: could not parse subobject declaration -> "+subobject+" in Object "+objectclass
-									sys.exit()
-								
-								objecttypesplit = re.findall(r'\w+',split[0])
-								
-								objecttype = objecttypesplit[0]
-								
-								if (len(objecttypesplit)>1):
-										objectsubtype = objecttypesplit[1]
-								else:	
-										objectsubtype = "Base"
-								
-								objectnamesplit = re.findall(r'\w+',split[1])
-								
-								objectname = objectnamesplit[0]
-								
-								if (len(objectnamesplit)<2):
-										objectkey = [objectname]
-								else:
-										objectkey = [key for key in objectnamesplit[1:] if key]
-								
-								modelObject.addObject(BaseObject(objecttype,objectsubtype,objectname,objectkey))
-								
-						self.modelObjects.append(modelObject)
 						
 		def getModelObjectsWithSuperModelObject(self,superObject):
 				
@@ -233,4 +177,60 @@ class ModelParser(BarakaParser):
 				for modelObject in self.modelObjects:
 						description+="\n"+modelObject.description()
 				return description
-			
+				
+				
+				
+	
+'''						lines = re.split(r'[\n\t\r]+',object)
+						
+						objectdeclaration = re.split(r'[\s+\t+^$\(\)]',lines[0])
+						
+						objectclass = objectdeclaration[1]
+						
+						if len(objectdeclaration)>2:
+								superclass = objectdeclaration[2] 
+						else:
+								superclass = "Object"
+						
+						if len(objectdeclaration)>3:
+								qualification = ObjectQualification(objectdeclaration[3]) 
+						else:
+								qualification = None
+								
+						if not qualification and superclass is not "Object":
+								print "\nERROR: error parsing object %s.An object with a non object superclass must have a qualification"%objectclass
+								sys.exit(0) 		
+												
+						modelObject = ModelObject(objectclass,superclass,qualification)
+						
+						subobjects = re.split(r'[\n\t]+',object[1])
+						
+						for subobject in lines[1:]:
+								
+								split = re.findall(r'[\w<>\(\):]+',subobject)
+								
+								if(len(split)<2):
+									print "ERROR: could not parse subobject declaration -> "+subobject+" in Object "+objectclass
+									sys.exit()
+								
+								objecttypesplit = re.findall(r'\w+',split[0])
+								
+								objecttype = objecttypesplit[0]
+								
+								if (len(objecttypesplit)>1):
+										objectsubtype = objecttypesplit[1]
+								else:	
+										objectsubtype = "Base"
+								
+								objectnamesplit = re.findall(r'\w+',split[1])
+								
+								objectname = objectnamesplit[0]
+								
+								if (len(objectnamesplit)<2):
+										objectkey = [objectname]
+								else:
+										objectkey = [key for key in objectnamesplit[1:] if key]
+								
+								modelObject.addObject(BaseObject(objecttype,objectsubtype,objectname,objectkey))
+								
+						self.modelObjects.append(modelObject)'''

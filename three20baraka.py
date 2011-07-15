@@ -1,7 +1,8 @@
-import sys,string,pdb,re,os,imp, pickle
+import sys,string,pdb,re,os,imp,pickle
 
 from optparse import OptionParser
-from modelparser import ModelParser
+from three20parser import Three20Parser
+from parser import Parser
 
 parser = None
 
@@ -14,8 +15,8 @@ hacker = None
 		
 def check_variable(variablekey,keydescription,warnmessage,defaultvalue):
 		value = None
-		if parser.parseVariable(variablekey):
-				value =  parser.parseVariable(variablekey)
+		if parser.parseGlobalSetting(variablekey):
+				value =  parser.parseGlobalSetting(variablekey)
 		else:
 				print "\nWARNING: "+keydescription+" not found...Use Key \""+variablekey+"\" to specify "+keydescription
 				if defaultvalue:
@@ -66,36 +67,36 @@ def main():
 		
 		#initialize the parser 
 		global parser
-		parser = ModelParser(args[0]);
+		parser = Three20Parser(args[0]);
 		
 		#Parse required variables from file
 		global modelobjectdir
-		value = check_variable("MODEL_OBJECT_DIR","model objects destination Directory",None,modelobjectdir)
+		value = check_variable("model_object_dir","model objects destination Directory",None,modelobjectdir)
 		if value:
 				modelobjectdir = value	
 		
 		global modeldir
-		value = check_variable("MODEL_DIR","models destination directory",None,modeldir)
+		value = check_variable("model_dir","models destination directory",None,modeldir)
 		if value:
 				modeldir = value
 		
 		global modelurlmacro
-		value = check_variable("MODEL_URL","macro for creating model URLs",None,modelurlmacro)
+		value = check_variable("model_url","macro for creating model URLs",None,modelurlmacro)
 		if value:
 				modelurlmacro = value
 				
 		global project
-		value = check_variable("PROJECT","project name","No project name will be written in files",project)
+		value = check_variable("project","project name","No project name will be written in files",project)
 		if value:
 				project = value		
 		
 		global three20path
-		value = check_variable("THREE20_PATH","path to Three20 project","The files wont be delinted",three20path)
+		value = check_variable("three20_path","path to Three20 project","The files wont be delinted",three20path)
 		if value:
 				three20path = value
 		
 		global hacker
-		value = check_variable("HACKER","Name of hacker","No hacker name will be written on the files",hacker)
+		value = check_variable("hacker","Name of hacker","No hacker name will be written on the files",hacker)
 		if value:
 				hacker = value
 		
@@ -111,6 +112,7 @@ def main():
 		parser.inputfilename = os.path.basename(args[0])
 		
 		
+		'''
 		modeldirpath = rootpath + "/"+modeldir 		
 		if not os.path.exists(modeldirpath):
 				print "\nCreating Directory %s"%modeldirpath
@@ -146,7 +148,7 @@ def main():
  					parser.generateObjectFiles()
  					parser.generateModelFiles()
  				
- 				
+ 		'''		
 		
 if __name__ == '__main__':
 	main()
