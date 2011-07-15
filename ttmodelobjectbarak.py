@@ -31,7 +31,6 @@ class ModelObjectClass(ObjCClass):
 								attributes.append("retain")
 							
 						self.addInstanceVariable(variable,True,attributes)
-						self.addMethod(InitMethod())
 				
 				self.addMethod(ModelObjectStaticInitMethod(self,parser))
 				self.addMethod(ModelObjectInitMethod(self))

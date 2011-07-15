@@ -1,4 +1,4 @@
-import string,re
+import string,re, pdb
 from filebarak import *
 
 ObjC_Classes = {'Dictionary':'NSDictionary',
@@ -50,10 +50,15 @@ class ObjCType (object):
 						
 		def objCPointer(self):
 				if self.name not in BaseTypes:
-					return self.objCType()+"*"
+						return self.objCType()+"*"
 				else:					
-					return self.objCType()
+						return self.objCType()
 					
+		def description(self):
+				if self.mutable:
+						return self.name + " (mutable)"		
+				else:
+						return self.name
 class ObjCVar(object):
 		
 		def __init__(self,type,name,mutable=False):
@@ -67,7 +72,10 @@ class ObjCVar(object):
 				return self.type.objCType() + "* "+ self.ivarname() 
 				
 		def synthesizerString(self):
-				 return "@synthesize "+self.name()+" = "+self.ivarname()  	
+				return "@synthesize "+self.name()+" = "+self.ivarname() 
+				 
+		def description(self):
+				return self.type.description() + "  "+self.name			  	
 
 
 class ObjCProperty(object):
@@ -102,13 +110,14 @@ class ObjCMethod (object):
 						fullname = self.name
 				else:
 						methodparts = re.findall(r'.+?:',self.name)
-						print methodparts
 						if not methodparts:
 								fullname = self.name
 						else:
 							fullname = ""		
 							variable_index=0
 							for part in methodparts:
+								if variable_index>len(self.variables)-1:
+									break
 								variable = self.variables[variable_index]
 								fullname+= part+"("+variable.type.objCPointer()+")"+variable.name+" "
 								variable_index = variable_index+1
@@ -127,13 +136,32 @@ class ObjCMethod (object):
 				definition = CodeBlock(self.methodTypeIdentifier()+"("+self.returnType.objCPointer()+") "+self.fullname())
 				return definition
 				
+		def description (self):
+				description = CodeList()
+				description.extend(["Objective C Method","-----------------"])
+				description.indent()
+				description.append("Name: "+self.name)
+				description.append("ReturnType" + self.returnType.description())
+				if self.methodType == ObjCMethodType.staticMethod:
+					description.append("Type : static");
+				else:
+					description.append("Type:  instance");
+				description.append("Variables:")
+				description.indent()
+				
+				for variable in self.variables:
+					description.append(variable.description())
+					
+				return ("\n").join(description)					
+				
 class InitMethod (ObjCMethod):
 		def __init__(self,objcclass,variables=[],methodname="init"):
-				if(len(variables)>0):
-						methodname+="With"
 				
-				for variable in variables:
-						methodname+=firstuppercase(variable.name)+":"	
+				if methodname == "init":
+					if(len(variables)>0):
+							methodname+="With"
+					for variable in variables:
+							methodname+=firstuppercase(variable.name)+":"	
 							
 				super(InitMethod,self).__init__(objcclass,"Generic",variables,methodname)
 				
