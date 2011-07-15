@@ -1,10 +1,7 @@
 import sys,string,pdb,re,os,imp,pickle
 
+from baraka import Baraka
 from optparse import OptionParser
-from three20parser import Three20Parser
-from parser import Parser
-
-parser = None
 
 modeldir = "DataModels"
 modelobjectdir = "DataObjects"
@@ -15,8 +12,8 @@ hacker = None
 		
 def check_variable(variablekey,keydescription,warnmessage,defaultvalue):
 		value = None
-		if parser.parseGlobalSetting(variablekey):
-				value =  parser.parseGlobalSetting(variablekey)
+		if parser.getGlobalSetting(variablekey):
+				value =  parser.getGlobalSetting(variablekey)
 		else:
 				print "\nWARNING: "+keydescription+" not found...Use Key \""+variablekey+"\" to specify "+keydescription
 				if defaultvalue:
@@ -67,7 +64,7 @@ def main():
 		
 		#initialize the parser 
 		global parser
-		parser = Three20Parser(args[0]);
+		parser = Baraka(args[0],["object"],["input","output"]);
 		
 		#Parse required variables from file
 		global modelobjectdir
@@ -100,7 +97,6 @@ def main():
 		if value:
 				hacker = value
 		
-		
 		#set the required variables on the parser		
 		parser.rootpath = rootpath
 		parser.modelobjectdir = modelobjectdir
@@ -110,9 +106,7 @@ def main():
 		parser.three20path = three20path
 		parser.hacker = hacker
 		parser.inputfilename = os.path.basename(args[0])
-		
-		
-		'''
+	
 		modeldirpath = rootpath + "/"+modeldir 		
 		if not os.path.exists(modeldirpath):
 				print "\nCreating Directory %s"%modeldirpath
@@ -121,8 +115,14 @@ def main():
  		if options.__dict__['parse']:
  				print "\nSuccessfully Parsed file %s"%os.path.basename(args[0])
 				sys.exit()
- 		
- 		
+ 		elif options.__dict__['debug']:
+ 				if options.__dict__['model']:
+ 					print parser.description(['model'])
+ 				elif options.__dict__['object']:			
+ 					print parser.description(['object'])
+ 				else:
+					print parser.description()
+ 		'''
  		if options.__dict__['verbose']:
  				if options.__dict__['model']:
  					parser.printModelFiles()
@@ -131,14 +131,7 @@ def main():
  				else:
  					parser.printObjectFiles()
  					parser.printModelFiles()	
- 		elif options.__dict__['debug']:
- 				if options.__dict__['model']:
- 					print parser.modelDescription()
- 				elif options.__dict__['object']:			
- 					print parser.objectDescription()
- 				else:
- 					print parser.objectDescription()
- 					print parser.modelDescription()
+ 		el
  		elif options.__dict__['object']:
  				if options.__dict__['model']:
  					parser.generateModelFiles()
