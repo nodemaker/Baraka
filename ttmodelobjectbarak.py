@@ -10,72 +10,29 @@ class dotdict(dict):
     	__setattr__= dict.__setitem__
     	__delattr__= dict.__delitem__
 
-
-class ModelObjectClass(ObjCClass):
-
-		def __init__(self,modelobject,parser):
+class SubObjectInitializationBlock(CodeBlock):
 				
-				self.parser = parser
-				self.modelobject = modelobject
-				super(ModelObjectClass,self).__init__(modelobject.name,modelobject.type)
-		
-				for subObject in modelobject.subObjects:
+		def __init__(self,objcclass,subObjects,blockHeader,entryName,superblock=None):
+				
+				super(SubObjectInitializationBlock,self).__init__(blockHeader,superblock)
+				
+				self.append("")
 						
-						variable = ObjCVar(subObject.type,subObject.name)
-						
-						attributes = ["nonatomic"]
-						
-						if variable.type.objCType() is 'NSString' or variable.type.objCType() is 'NSDate':
-								attributes.append("copy")
-						else:	
-								attributes.append("retain")
+				hasDateSubObject = False
+				for subObject in subObjects:
+						if subObject.type == "Date":
+								hasDateSubObject = True													
+				
+				if hasDateSubObject:
+						self.appendStatement("NSDateFormatter* dateFormatter = [[[NSDateFormatter alloc] init] autorelease]")
+						self.appendStatement("[dateFormatter setTimeStyle:NSDateFormatterFullStyle]")
+						self.appendStatement("[dateFormatter setDateFormat:@\"%s\"]"%dateFormat)
+						self.append("")
+				
+				for subObject in subObjects:
 							
-						self.addInstanceVariable(variable,True,attributes)
-				
-				self.addMethod(ModelObjectStaticInitMethod(self,parser))
-				self.addMethod(ModelObjectInitMethod(self))
-				self.addMethod(DeallocMethod(self))
-				self.addMethod(DescriptionMethod(self))
-		
-		def hasDateSubObject (self):
-				for variable in self.variables:
-						if variable.type.objCType() is "NSDate":
-								return True
-				return False											
-	
-
-class ModelObjectInitMethod(InitMethod):
-
-		def __init__(self,modelclass):
-				super(ModelObjectInitMethod,self).__init__(modelclass,[ObjCVar("Dictionary","entry")],"initWithDictionary:")
-				
-		def definition(self):
-				definition = super(ModelObjectInitMethod,self).definition()
-				
-				definition.append("")
-				
-				nullcheckBlock = CodeBlock("if([entry isKindOfClass:[NSNull class]])")
-				nullcheckBlock.appendStatement("return nil")
-				definition.extend(nullcheckBlock)
-				
-				
-				if self.objcclass.supertype.objCType() is "NSObject":
-					initializationBlock = CodeBlock("if(self = [super init])")
-				else:
-					initializationBlock = CodeBlock("if(self = [super initWithDictionary:entry])")
-				
-				initializationBlock.append("")
-				
-				if self.objcclass.hasDateSubObject():
-						initializationBlock.appendStatement("NSDateFormatter* dateFormatter = [[[NSDateFormatter alloc] init] autorelease]")
-						initializationBlock.appendStatement("[dateFormatter setTimeStyle:NSDateFormatterFullStyle]")
-						initializationBlock.appendStatement("[dateFormatter setDateFormat:@\"%s\"]"%dateFormat)
-						initializationBlock.append("")
-				
-				for subObject in self.objcclass.modelobject.subObjects:
-
-						lastEntryName = "entry"
-						lastBlock = initializationBlock
+						lastEntryName = entryName	
+						lastBlock = self
 						
 						for key in subObject.key:
 								ifblock = CodeBlock("if([%(dictionary)s objectForKey:@\"%(key)s\"])"%{'dictionary':lastEntryName,'key':key},lastBlock)	
@@ -105,7 +62,7 @@ class ModelObjectInitMethod(InitMethod):
 										lastBlock.append("")
 										lastBlock.appendStatement("NSMutableArray* %(objectname)s = [NSMutableArray arrayWithCapacity:[%(dictionary)s count]]"%params)
 										
-										self.objcclass.implImports.add(ObjCType(subObject.subtype))
+										objcclass.implImports.add(ObjCType(subObject.subtype))
 										
 										forblock = CodeBlock("for (NSDictionary* entry in %(dictionary)s)"%params)
 										forblock.appendStatement("[%(objectname)s addObject:[[[%(subtype)s alloc] initWithDictionary:entry] autorelease]]"%params)
@@ -116,11 +73,58 @@ class ModelObjectInitMethod(InitMethod):
 										lastBlock.append("I dont fucking know")
 						else:
 								lastBlock.appendStatement("self."+subObject.name+" = [[["+subObject.objCType()+" alloc] initWithDictionary:["+lastEntryName+" objectForKey:@\""+objectkey+"\"]] autorelease]")
-						while lastBlock and lastBlock is not initializationBlock:
+						while lastBlock and lastBlock is not self:
 								lastBlock.superBlock.extend(lastBlock);
 								lastBlock.superBlock.append("")
-								lastBlock = lastBlock.superBlock;
+								lastBlock = lastBlock.superBlock;	
+				
+
+class ModelObjectClass(ObjCClass):
+
+		def __init__(self,modelobject,parser):
+				
+				self.parser = parser
+				self.modelobject = modelobject
+				super(ModelObjectClass,self).__init__(modelobject.name,modelobject.type)
+		
+				for subObject in modelobject.subObjects:
 						
+						variable = ObjCVar(subObject.type,subObject.name)
+						
+						attributes = ["nonatomic"]
+						
+						if variable.type.objCType() is 'NSString' or variable.type.objCType() is 'NSDate':
+								attributes.append("copy")
+						else:	
+								attributes.append("retain")
+							
+						self.addInstanceVariable(variable,True,attributes)
+				
+				self.primaryInitMethod = ModelObjectStaticInitMethod(self,parser)
+				self.addMethod(self.primaryInitMethod)
+				self.addMethod(ModelObjectInitMethod(self))
+				self.addMethod(DeallocMethod(self))
+				self.addMethod(DescriptionMethod(self))
+
+class ModelObjectInitMethod(InitMethod):
+
+		def __init__(self,modelclass):
+				super(ModelObjectInitMethod,self).__init__(modelclass,[ObjCVar("Dictionary","entry")],"initWithDictionary:")
+				
+		def definition(self):
+				definition = super(ModelObjectInitMethod,self).definition()
+				
+				definition.append("")
+				
+				nullcheckBlock = CodeBlock("if([entry isKindOfClass:[NSNull class]])")
+				nullcheckBlock.appendStatement("return nil")
+				definition.extend(nullcheckBlock)
+
+				if self.objcclass.supertype.objCType() is "NSObject":
+					initializationBlock = SubObjectInitializationBlock(self.objcclass,self.objcclass.modelobject.subObjects,"if(self = [super init])","entry",definition)
+				else:
+					initializationBlock = SubObjectInitializationBlock(self.objcclass,self.objcclass.modelobject.subObjects,"if(self = [super initWithDictionary:entry])","entry",definition)
+				
 				definition.append("")
 				definition.extend(initializationBlock)
 				definition.append("")

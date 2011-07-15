@@ -146,6 +146,14 @@ class ModelParser(BarakaParser):
 								objectlist.append(modelObject)
 								
 				return objectlist
+				
+		def getModelObjectWithModelObjectName(self,name):
+	
+				for modelObject in self.modelObjects:
+						if modelObject.name == name:
+								return modelObject
+						
+				return None				
 		
 		def generateObjectFiles(self):
 				

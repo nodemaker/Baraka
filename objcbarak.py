@@ -105,6 +105,27 @@ class ObjCMethod (object):
 				self.objcclass=objcclass
 				self.methodType = methodType
 		
+		def callString(self,variablenames):
+				if not variablenames:
+						return self.name
+				else:		
+						methodparts = re.findall(r'.+?:',self.name)
+						if not methodparts:
+								fullname = self.name
+						else:
+							fullname = ""		
+							variable_index=0
+							for part in methodparts:
+								if variable_index>len(variablenames)-1:
+									break
+								variablename = variablenames[variable_index]
+								if(variable_index>0):
+									fullname+=" "
+								fullname+= part+ variablename
+								variable_index = variable_index+1
+						return fullname				
+								
+								
 		def fullname(self):
 				if not self.variables:
 						fullname = self.name
@@ -253,7 +274,10 @@ class ObjCClass(object):
 				return	self.name+".h"
 				
 		def implfilename(self):
-				return	self.name+".m"							
+				return	self.name+".m"
+				
+		def callStaticMethodString(self,method,variables):
+				return "[%(class)s %(method)s]"%{'class':self.name,'method':method.callString(variables)}									
 
 class ObjCFile (File):
 		

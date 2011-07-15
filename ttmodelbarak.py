@@ -1,6 +1,6 @@
 import sys,string,pdb,re,os,imp, pickle
 
-from ttmodelobjectbarak import BaseObject
+from ttmodelobjectbarak import *
 from objcbarak import *
 
 class ModelClass(ObjCClass):
@@ -67,6 +67,8 @@ class ModelLoadMoreMethod(ObjCMethod):
 class ModelDidFinishLoadMethod(ObjCMethod):				
 				
 		def __init__(self,modelclass):
+				self.modelclass = modelclass
+				self.model = modelclass.model
 				super(ModelDidFinishLoadMethod,self).__init__(modelclass,"None",[ObjCVar("Dictionary","result")],"requestDidFinishLoadJSON:")
 		
 		def declaration(self):
@@ -74,6 +76,30 @@ class ModelDidFinishLoadMethod(ObjCMethod):
 		
 		def definition(self):
 				definition = super(ModelDidFinishLoadMethod,self).definition()
+				for output in self.model.outputs:
+						variable = ObjCVar(output.type,output.name,True)
+						definition.appendStatement("TT_RELEASE_SAFELY(%s)"%variable.ivarname())
+						
+						'''
+						if not ObjCType(output.type).isBaseType():
+								modelobject = self.modelclass.parser.getModelObjectWithModelObjectName(output.type)
+								objClass = ModelObjectClass(modelobject,self.modelclass.parser)
+								callInitMethodString = objClass.callStaticMethodString(objClass.primaryInitMethod,["result"])
+								definition.appendStatement("%(ivar)s=[%(methodcall)s retain]"%{'ivar':variable.ivarname(),'methodcall':callInitMethodString})
+						elif output.type == "Dictionary":
+								callInitMethodString = "[NSDictionary dictionaryWithDictionary:result]"
+								definition.appendStatement("%(ivar)s=[%(methodcall)s retain]"%{'ivar':variable.ivarname(),'methodcall':callInitMethodString})
+						elif output.type == "Array":
+								initializationBlock = SubObjectInitializationBlock(self.objcclass,[output],"if(result)","result",definition)
+								definition.extend(initializationBlock)	
+						'''
+				initializationBlock = SubObjectInitializationBlock(self.objcclass,self.model.outputs,"if(result)","result",definition)
+				definition.extend(initializationBlock)	
+				
+						#definition.append("")
+				
+				
+				definition.appendStatement("[super requestDidFinishLoadJSON:result]")
 				return definition			
 				
 class Model(object):
