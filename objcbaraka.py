@@ -261,7 +261,7 @@ class InitMethod(ObjCMethod):
 class StaticInitMethod(ObjCMethod):
 		
 		def __init__(self,objcclass,variables=[],methodname="object"):
-				super(StaticInitMethod,self).__init__(objcclass,objcclass.name,variables,methodname)
+				super(StaticInitMethod,self).__init__(objcclass,"Generic",variables,methodname,ObjCMethodType.staticMethod)
 				
 
 class DeallocMethod (ObjCMethod):

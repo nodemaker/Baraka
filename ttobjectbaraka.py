@@ -209,7 +209,7 @@ class DictionaryInitializationBlock(CodeBlock):
 										lastBlock.append("")
 										lastBlock.appendStatement("NSMutableArray* %(objectname)s = [NSMutableArray arrayWithCapacity:[%(dictionary)s count]]"%params)
 										
-										objcclass.implImports.add(vartype)
+										objcclass.implImports.add(ObjCType(baseEntity.subType))
 										
 										forblock = CodeBlock("for (NSDictionary* entry in %(dictionary)s)"%params)
 										forblock.appendStatement("[%(objectname)s addObject:[[[%(subtype)s alloc] initWithDictionary:entry] autorelease]]"%params)
