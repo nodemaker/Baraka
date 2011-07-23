@@ -44,6 +44,15 @@ class Baraka(object):
 		def rawDescription(self):
 				return self.rawString
 				
+		def getEntitiesWithTypeName(self,name):
+				entities = []
+				
+				for entity in self.entities:
+						if name == entity.typeBaseEntity.name:
+								entities.append(entity)
+			
+				return entities				
+				
 		def description(self,filter = []):
 				description =  "\n\nParse Results\n"
 				description += "-----------------\n"
@@ -60,13 +69,20 @@ class Baraka(object):
 					for entity in self.entities:
 						description += "\t"+entity.description().replace('\n','\n\t')
 				
-				return description		
+				return description
+			
+								
 				
 class Entity(object):				
 		def __init__(self,rawEntity,entityName,subEntityNames):				
 				self.rawString = rawEntity	
 				self.name = entityName
 				self.subEntityNames = subEntityNames
+				
+				#parse the type of entity
+				entityTypeMatch = re.search(r'Object[\t ]+(.*)',self.rawString,re.IGNORECASE)
+				if entityTypeMatch and entityTypeMatch.group(1):
+						self.typeBaseEntity = BaseEntity(entityTypeMatch.group(1))
 				
 				self.subEntities = []
 		
@@ -97,12 +113,20 @@ class Entity(object):
 		
 		def rawDescription(self):
 				return self.rawString
+				
+		def getSubEntityByName(self,name):
+				for subEntity in self.subEntities:
+						if subEntity.name.lower() == name.lower():
+								return subEntity
+				return 	None			
+						
 		
 		def description(self):
-				description = "\n<Entity> Name:"+self.name.title() + "\n<SubEntities>"
+				description = "\n<Entity> Name:"+self.name.title() +" Type:"+self.typeBaseEntity.description() 
+				description += "\n<SubEntities>"
 				for subEntity in self.subEntities:
 						description += "\n\t"+subEntity.description().replace('\n','\n\t')
-				return description
+				return description	
 
 
 class SubEntity(object):
@@ -179,3 +203,9 @@ class BaseEntity(object):
 				self.name = nameParts[0]
 				if len(nameParts)>1:
 						self.subName = nameParts[1]
+
+class dotdict(dict):
+    	def __getattr__(self, attr):
+        	return self.get(attr, None)
+    	__setattr__= dict.__setitem__
+    	__delattr__= dict.__delitem__								

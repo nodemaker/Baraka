@@ -1,5 +1,7 @@
 import string,re, pdb
-from filebarak import *
+
+from baraka import *
+from file import *
 
 ObjC_Classes = {'Dictionary':'NSDictionary',
 				'String':'NSString',
@@ -23,10 +25,71 @@ def add_base_type(type):
 		global BaseTypes
 		BaseTypes.append(type)
 
+class ObjCClass(object):
+	
+		def __init__(self,entity,baraka):
+				self.entity = entity
+				self.baraka = baraka
+			
+				self.name = entity.typeBaseEntity.type
+				self.supertype = ObjCType(entity.typeBaseEntity.name)
+				self.variables = []
+				self.properties = []
+				self.staticInitMethod = None
+				self.initMethod = None
+				self.methods = []
+				
+				self.implImports = set([ObjCType(self.name)])
+				self.headerImports = set()
+				if not self.supertype.isBaseType():
+						self.headerImports.add(self.supertype)
+						
+		def addInstanceVariable(self,objcvar,isProperty=True,attributes=None):
+				self.variables.append(objcvar)
+				
+				if(isProperty):
+					self.addProperty(ObjCProperty(attributes,objcvar))
+				
+				if not objcvar.type.isBaseType():
+					self.headerImports.add(objcvar.type) 
+					
+		def addProperty(self,property):
+		
+				self.properties.append(property)
+				
+				
+		def addMethod(self,method):
+		
+				self.methods.append(method)			
+				
+		def headerfilename(self):
+				return	self.name+".h"
+				
+		def implfilename(self):
+				return	self.name+".m"
+				
+		def callStaticMethodString(self,method,variables):
+				return "[%(class)s %(method)s]"%{'class':self.name,'method':method.callString(variables)}
+				
+		def allMethods(self):
+				allMethods = []
+				
+				if self.staticInitMethod:
+					allMethods.append(self.staticInitMethod)	
+				
+				if self.initMethod:
+					allMethods.append(self.initMethod)			
+				
+				allMethods.extend(self.methods)
+				
+				return allMethods
 
 class ObjCType (object):
 
 		def __init__(self,typename,mutable=False):
+				if not typename:
+					typename = "Object"
+				
 				self.name=typename
 				self.mutable = mutable
 			
@@ -99,14 +162,20 @@ class ObjCMethodType:
 class ObjCMethod (object):
 	
 		def __init__(self,objcclass,returnType,variables,methodname,methodType=ObjCMethodType.instanceMethod):
+				
+				if(len(variables)>0):
+						methodname+="With"
+				for variable in variables:
+						methodname+=firstuppercase(variable.name)+":"
+				
 				self.name=methodname
 				self.returnType=ObjCType(returnType)
 				self.variables=variables
 				self.objcclass=objcclass
 				self.methodType = methodType
 		
-		def callString(self,variablenames):
-				if not variablenames:
+		def callString(self,variables):
+				if not variables:
 						return self.name
 				else:		
 						methodparts = re.findall(r'.+?:',self.name)
@@ -116,17 +185,18 @@ class ObjCMethod (object):
 							fullname = ""		
 							variable_index=0
 							for part in methodparts:
-								if variable_index>len(variablenames)-1:
+								if variable_index>len(variables)-1:
 									break
-								variablename = variablenames[variable_index]
+								variable = variables[variable_index]
 								if(variable_index>0):
 									fullname+=" "
-								fullname+= part+ variablename
+								fullname+= part+ variable.name
 								variable_index = variable_index+1
 						return fullname				
 								
 								
 		def fullname(self):
+				prefix = self.methodTypeIdentifier() +"("+self.returnType.objCPointer()+") "
 				if not self.variables:
 						fullname = self.name
 				else:
@@ -142,7 +212,7 @@ class ObjCMethod (object):
 								variable = self.variables[variable_index]
 								fullname+= part+"("+variable.type.objCPointer()+")"+variable.name+" "
 								variable_index = variable_index+1
-				return fullname				
+				return prefix + fullname				
 		
 		def methodTypeIdentifier(self):
 				if self.methodType is ObjCMethodType.instanceMethod:
@@ -151,10 +221,10 @@ class ObjCMethod (object):
 					return "+"
 				
 		def declaration (self):
-				return self.methodTypeIdentifier() +"("+self.returnType.objCPointer()+") "+self.fullname()+";"
+				return self.fullname()+";"
 		
 		def definition	(self):	
-				definition = CodeBlock(self.methodTypeIdentifier()+"("+self.returnType.objCPointer()+") "+self.fullname())
+				definition = CodeBlock(self.fullname())
 				return definition
 				
 		def description (self):
@@ -175,15 +245,8 @@ class ObjCMethod (object):
 					
 				return ("\n").join(description)					
 				
-class InitMethod (ObjCMethod):
+class InitMethod(ObjCMethod):
 		def __init__(self,objcclass,variables=[],methodname="init"):
-				
-				if methodname == "init":
-					if(len(variables)>0):
-							methodname+="With"
-					for variable in variables:
-							methodname+=firstuppercase(variable.name)+":"	
-							
 				super(InitMethod,self).__init__(objcclass,"Generic",variables,methodname)
 				
 		def definition(self):	
@@ -195,13 +258,19 @@ class InitMethod (ObjCMethod):
 				definition.extend(ifblock)
 				return definition
 
+class StaticInitMethod(ObjCMethod):
+		
+		def __init__(self,objcclass,variables=[],methodname="object"):
+				super(StaticInitMethod,self).__init__(objcclass,objcclass.name,variables,methodname)
+				
+
 class DeallocMethod (ObjCMethod):
 
 		def __init__(self,objcclass):
 				super(DeallocMethod,self).__init__(objcclass,"None",[],"dealloc")
 				
 		def definition(self):
-				definition = CodeBlock("-("+self.returnType.objCPointer()+") "+self.fullname())
+				definition = CodeBlock(self.fullname())
 				
 				for variable in self.objcclass.variables:
 						definition.appendStatement("TT_RELEASE_SAFELY(%s)"%variable.ivarname())
@@ -237,47 +306,7 @@ class DescriptionMethod(ObjCMethod):
 		
 		def declaration(self):
 				return None
-
-class ObjCClass(object):
-	
-		def __init__(self,classname,superclassname="Object"):
-				self.name = classname
-				self.supertype = ObjCType(superclassname)
-				self.variables = []
-				self.properties = []
-				self.methods = []
-				
-				self.implImports = set([ObjCType(self.name)])
-				self.headerImports = set()
-				if not self.supertype.isBaseType():
-						self.headerImports.add(self.supertype)
-						
-		def addInstanceVariable(self,objcvar,isProperty=True,attributes=None):
-				self.variables.append(objcvar)
-				
-				if(isProperty):
-					self.addProperty(ObjCProperty(attributes,objcvar))
-				
-				if not objcvar.type.isBaseType():
-					self.headerImports.add(objcvar.type) 
-					
-		def addProperty(self,property):
-		
-				self.properties.append(property)
-				
-				
-		def addMethod(self,method):
-		
-				self.methods.append(method)			
-				
-		def headerfilename(self):
-				return	self.name+".h"
-				
-		def implfilename(self):
-				return	self.name+".m"
-				
-		def callStaticMethodString(self,method,variables):
-				return "[%(class)s %(method)s]"%{'class':self.name,'method':method.callString(variables)}									
+							
 
 class ObjCFile (File):
 		
@@ -312,7 +341,7 @@ class ObjCHeaderFile (ObjCFile):
 				
 				interface.append("")
 				
-				for method in self.objcclass.methods:			
+				for method in self.objcclass.allMethods():			
 					interface.extend(["",method.declaration()])	
 					
 				interface.extend(["@end"])
@@ -349,8 +378,8 @@ class ObjCImplFile(ObjCFile):
 				implementation.append ("@implementation "+self.objcclass.name)
 				implementation.append ("")
 				implementation.extend (self.synthesizers())
-				
-				for method in self.objcclass.methods:
+								
+				for method in self.objcclass.allMethods():
 					implementation.extend(["",divider])			
 					implementation.extend(method.definition())	
 				
@@ -389,7 +418,4 @@ class ObjCImplFile(ObjCFile):
 				return synthesizers	 		
 		
 		def filename(self):
-				return self.objcclass.implfilename()
-		
-
-
+				return self.objcclass.implfilename()		

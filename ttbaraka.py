@@ -1,6 +1,6 @@
 import sys,string,pdb,re,os,imp,pickle
 
-from baraka import Baraka
+from ttobjectbaraka import TTObjectBaraka
 from optparse import OptionParser
 
 modeldir = "DataModels"
@@ -10,10 +10,10 @@ project = None
 three20path = None
 hacker = None
 		
-def check_variable(variablekey,keydescription,warnmessage,defaultvalue):
+def check_variable(baraka,variablekey,keydescription,warnmessage,defaultvalue):
 		value = None
-		if parser.getGlobalSetting(variablekey):
-				value =  parser.getGlobalSetting(variablekey)
+		if baraka.getGlobalSetting(variablekey):
+				value =  baraka.getGlobalSetting(variablekey)
 		else:
 				print "\nWARNING: "+keydescription+" not found...Use Key \""+variablekey+"\" to specify "+keydescription
 				if defaultvalue:
@@ -62,86 +62,70 @@ def main():
 		abspath = os.path.abspath(args[0])
 		rootpath =  os.path.dirname(abspath)
 		
-		#initialize the parser 
-		global parser
-		parser = Baraka(args[0],["object"],["input","output"]);
+		#initialize the baraka 
+		baraka = TTObjectBaraka(args[0]);
 		
 		#Parse required variables from file
 		global modelobjectdir
-		value = check_variable("model_object_dir","model objects destination Directory",None,modelobjectdir)
+		value = check_variable(baraka,"model_object_dir","model objects destination Directory",None,modelobjectdir)
 		if value:
 				modelobjectdir = value	
 		
 		global modeldir
-		value = check_variable("model_dir","models destination directory",None,modeldir)
+		value = check_variable(baraka,"model_dir","models destination directory",None,modeldir)
 		if value:
 				modeldir = value
 		
 		global modelurlmacro
-		value = check_variable("model_url","macro for creating model URLs",None,modelurlmacro)
+		value = check_variable(baraka,"model_url","macro for creating model URLs",None,modelurlmacro)
 		if value:
 				modelurlmacro = value
 				
 		global project
-		value = check_variable("project","project name","No project name will be written in files",project)
+		value = check_variable(baraka,"project","project name","No project name will be written in files",project)
 		if value:
 				project = value		
 		
 		global three20path
-		value = check_variable("three20_path","path to Three20 project","The files wont be delinted",three20path)
+		value = check_variable(baraka,"three20_path","path to Three20 project","The files wont be delinted",three20path)
 		if value:
 				three20path = value
 		
 		global hacker
-		value = check_variable("hacker","Name of hacker","No hacker name will be written on the files",hacker)
+		value = check_variable(baraka,"hacker","Name of hacker","No hacker name will be written on the files",hacker)
 		if value:
 				hacker = value
 		
-		#set the required variables on the parser		
-		parser.rootpath = rootpath
-		parser.modelobjectdir = modelobjectdir
-		parser.modeldir = modeldir
-		parser.modelurlmacro = modelurlmacro
-		parser.project = project
-		parser.three20path = three20path
-		parser.hacker = hacker
-		parser.inputfilename = os.path.basename(args[0])
+		#set the required variables on the baraka		
+		baraka.rootpath = rootpath
+		baraka.modelobjectdir = modelobjectdir
+		baraka.modeldir = modeldir
+		baraka.modelurlmacro = modelurlmacro
+		baraka.project = project
+		baraka.three20path = three20path
+		baraka.hacker = hacker
+		baraka.inputfilename = os.path.basename(args[0])
 	
 		modeldirpath = rootpath + "/"+modeldir 		
 		if not os.path.exists(modeldirpath):
 				print "\nCreating Directory %s"%modeldirpath
-				os.makedirs(modeldirpath)	
-						
+				os.makedirs(modeldirpath)			
+ 		
+ 		
  		if options.__dict__['parse']:
  				print "\nSuccessfully Parsed file %s"%os.path.basename(args[0])
 				sys.exit()
  		elif options.__dict__['debug']:
  				if options.__dict__['model']:
- 					print parser.description(['model'])
+ 					print baraka.description(['model'])
  				elif options.__dict__['object']:			
- 					print parser.description(['object'])
+ 					print baraka.description(['object'])
  				else:
-					print parser.description()
- 		'''
- 		if options.__dict__['verbose']:
- 				if options.__dict__['model']:
- 					parser.printModelFiles()
- 				elif options.__dict__['object']:			
- 					parser.printObjectFiles()
- 				else:
- 					parser.printObjectFiles()
- 					parser.printModelFiles()	
- 		el
- 		elif options.__dict__['object']:
- 				if options.__dict__['model']:
- 					parser.generateModelFiles()
- 				elif options.__dict__['object']:			
- 					parser.generateObjectFiles()
- 				else:
- 					parser.generateObjectFiles()
- 					parser.generateModelFiles()
- 				
- 		'''		
+					print baraka.description()
+ 		elif options.__dict__['verbose']:
+ 				baraka.printToConsole()		
+ 		else:
+ 				baraka.generate()	
 		
 if __name__ == '__main__':
 	main()
