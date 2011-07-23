@@ -210,7 +210,11 @@ class ObjCMethod (object):
 								if variable_index>len(self.variables)-1:
 									break
 								variable = self.variables[variable_index]
-								fullname+= part+"("+variable.type.objCPointer()+")"+variable.name+" "
+								fullname+= part+"("+variable.type.objCPointer()+")"+variable.name
+								
+								if not variable_index == len(self.variables)-1:
+										fullname+=" "
+								
 								variable_index = variable_index+1
 				return prefix + fullname				
 		

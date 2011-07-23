@@ -6,7 +6,7 @@ import sys,string,pdb,re
 
 class Baraka(object):
 		
-		def __init__(self,fileName,entityNames,subEntityNames):
+		def __init__(self,fileName,entityNames=[],subEntityNames=[]):
 				self.rawString = open(fileName, 'r').read()		
 				
 				self.entityNames = entityNames
@@ -53,7 +53,7 @@ class Baraka(object):
 			
 				return entities				
 				
-		def description(self,filter = []):
+		def description(self):
 				description =  "\n\nParse Results\n"
 				description += "-----------------\n"
 				
@@ -80,7 +80,7 @@ class Entity(object):
 				self.subEntityNames = subEntityNames
 				
 				#parse the type of entity
-				entityTypeMatch = re.search(r'Object[\t ]+(.*)',self.rawString,re.IGNORECASE)
+				entityTypeMatch = re.search(r'%s[\t ]+(.*)'%self.name,self.rawString,re.IGNORECASE)
 				if entityTypeMatch and entityTypeMatch.group(1):
 						self.typeBaseEntity = BaseEntity(entityTypeMatch.group(1))
 				
@@ -150,7 +150,6 @@ class SubEntity(object):
 				return self.rawString
 						
 		def parse(self):
-				
 				#for single line subentities
 				singlelinematch = re.search(r'%s[:\t= ]+(.*)'%self.name,self.rawString,re.IGNORECASE)
 				

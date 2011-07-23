@@ -1,10 +1,14 @@
 import sys,string,pdb,re,os,imp,pickle
 
+from baraka import Baraka
 from ttobjectbaraka import TTObjectBaraka
+from ttitembaraka import TTItemBaraka
+#from ttmodelbaraka import TTModelBaraka
 from optparse import OptionParser
 
 modeldir = "DataModels"
 modelobjectdir = "DataObjects"
+itemdir = "TableItems"
 modelurlmacro = "URL"
 project = None
 three20path = None
@@ -42,6 +46,9 @@ def main():
 		optparser.add_option("-m", "--model", dest="model",
 						help="Only generate or print or describe model files",
 						action="store_true")
+		optparser.add_option("-i", "--item", dest="item",
+						help="Only generate or print or describe item files",
+						action="store_true")				
 		optparser.add_option("-p", "--parse", dest="parse",
 						help="Just Parse...Dont print,generate or even print description",
 						action="store_true")								
@@ -63,7 +70,7 @@ def main():
 		rootpath =  os.path.dirname(abspath)
 		
 		#initialize the baraka 
-		baraka = TTObjectBaraka(args[0]);
+		baraka = Three20Baraka(args[0],options);
 		
 		#Parse required variables from file
 		global modelobjectdir
@@ -75,6 +82,11 @@ def main():
 		value = check_variable(baraka,"model_dir","models destination directory",None,modeldir)
 		if value:
 				modeldir = value
+				
+		global itemdir
+		value = check_variable(baraka,"item_dir","Items Destination directory",None,itemdir)
+		if value:
+				itemdir = value		
 		
 		global modelurlmacro
 		value = check_variable(baraka,"model_url","macro for creating model URLs",None,modelurlmacro)
@@ -100,32 +112,122 @@ def main():
 		baraka.rootpath = rootpath
 		baraka.modelobjectdir = modelobjectdir
 		baraka.modeldir = modeldir
+		baraka.itemdir = itemdir
 		baraka.modelurlmacro = modelurlmacro
 		baraka.project = project
 		baraka.three20path = three20path
 		baraka.hacker = hacker
 		baraka.inputfilename = os.path.basename(args[0])
-	
-		modeldirpath = rootpath + "/"+modeldir 		
-		if not os.path.exists(modeldirpath):
-				print "\nCreating Directory %s"%modeldirpath
-				os.makedirs(modeldirpath)			
- 		
+			
+ 		baraka.passOnSettings()
  		
  		if options.__dict__['parse']:
  				print "\nSuccessfully Parsed file %s"%os.path.basename(args[0])
 				sys.exit()
  		elif options.__dict__['debug']:
- 				if options.__dict__['model']:
- 					print baraka.description(['model'])
- 				elif options.__dict__['object']:			
- 					print baraka.description(['object'])
- 				else:
-					print baraka.description()
+ 				print baraka.description()
  		elif options.__dict__['verbose']:
  				baraka.printToConsole()		
  		else:
  				baraka.generate()	
+
+class Three20Baraka(Baraka):
+		
+		def __init__(self,filename,options):
+		
+				self.itembaraka = None
+				self.objectbaraka = None
+				self.modelbaraka = None
+
+				
+				if options.__dict__['item']:
+						self.itembaraka = TTItemBaraka(filename)
+				#elif options.__dict__['model']:
+						#self.modelbaraka = TTModelBaraka(filename)
+				elif options.__dict__['object']:
+						self.objectbaraka = TTObjectBaraka(filename)
+				else:
+						self.itembaraka = TTItemBaraka(filename) 		
+						#self.modelbaraka = TTModelBaraka(filename)
+						self.objectbaraka = TTObjectBaraka(filename)
+				
+				super(Three20Baraka,self).__init__(filename)			
+					
+		def passOnSettings(self):			
+						
+				if self.itembaraka:
+						#set the required variables on the baraka		
+						self.itembaraka.rootpath = self.rootpath
+						self.itembaraka.modelobjectdir = self.modelobjectdir
+						self.itembaraka.modeldir = self.modeldir
+						self.itembaraka.itemdir = self.itemdir
+						self.itembaraka.modelurlmacro = self.modelurlmacro
+						self.itembaraka.project = self.project
+						self.itembaraka.three20path = self.three20path
+						self.itembaraka.hacker = self.hacker
+						self.itembaraka.inputfilename = self.inputfilename
+				
+				if self.objectbaraka:
+						#set the required variables on the baraka		
+						self.objectbaraka.rootpath = self.rootpath
+						self.objectbaraka.modelobjectdir = self.modelobjectdir
+						self.objectbaraka.modeldir = self.modeldir
+						self.objectbaraka.itemdir = self.itemdir
+						self.objectbaraka.modelurlmacro = self.modelurlmacro
+						self.objectbaraka.project = self.project
+						self.objectbaraka.three20path = self.three20path
+						self.objectbaraka.hacker = self.hacker
+						self.objectbaraka.inputfilename = self.inputfilename
+						
+				if self.modelbaraka:
+						#set the required variables on the baraka		
+						modelbaraka.rootpath = self.rootpath
+						modelbaraka.modelobjectdir = self.modelobjectdir
+						modelbaraka.modeldir = self.modeldir
+						modelbaraka.itemdir = self.itemdir
+						modelbaraka.modelurlmacro = self.modelurlmacro
+						modelbaraka.project = self.project
+						modelbaraka.three20path = self.three20path
+						modelbaraka.hacker = self.hacker
+						modelbaraka.inputfilename = self.inputfilename				
+							
+		def description(self):
+				description = super(Three20Baraka,self).description()
+					
+				if self.itembaraka:
+						description += self.itembaraka.description()
+				
+				if self.modelbaraka:
+						description += self.modelbaraka.description()
+						
+				if self.objectbaraka:
+						description += self.objectbaraka.description()
+						
+				return description						
+						
+		def printToConsole(self):
+				if self.itembaraka:
+						self.itembaraka.printToConsole()
+				
+				if self.modelbaraka:
+						self.modelbaraka.printToConsole()
+						
+				if self.objectbaraka:
+						self.objectbaraka.printToConsole()
+		
+		def generate():						
+				if self.itembaraka:
+						self.itembaraka.generate()
+				
+				if self.modelbaraka:
+						self.modelbaraka.generate()
+						
+				if self.objectbaraka:
+						self.objectbaraka.generate()
+			
+						
+			
+			
 		
 if __name__ == '__main__':
 	main()
