@@ -16,15 +16,16 @@ class TTItemBaraka(TTBaraka):
 		
 		def parse(self):
 				self.dirname = self.checkGlobalSetting("item_dir","Items Destination directory",None,"TableItems")
+				self.defaultsuperclass = self.checkGlobalSetting("default_item_super","Default Item Super Class",None,"TTTableLinkedItem")
 				super(TTItemBaraka,self).parse()
 		
 		def create(self):
 				for entity in self.entities:
 						self.classes.append(ItemClass(entity,self))				
 		
-		def generate(self):
+		def generate(self,n=-1,header=True,source=True):
 				print "\nGenerating Table Items from file %s...\n"%self.fileName
-				super(TTItemBaraka,self).generate()		
+				super(TTItemBaraka,self).generate(n,header,source)		
 				
 
 class ItemClass(ObjCClass):
@@ -54,11 +55,34 @@ class ItemClass(ObjCClass):
 				inputSubEntity = self.entity.getSubEntityByName("input")
 				
 				for baseEntity in inputSubEntity.baseEntities:
+						inputtype = ObjCType(baseEntity.type)
+						
+						if not inputtype.isBaseType():
+							self.headerImports.add(inputtype)
+						
 						inputVariables.append(ObjCVar(baseEntity.type,baseEntity.name))
 				
 				self.initMethod = InitMethod(self,inputVariables)
+				self.staticInitMethod = StaticInitMethod(self,inputVariables,"item",self.initMethod)
+				
+				#add the secondary init method and static init method
+				secondaryInitMethod = InitMethod(self,self.variables)
+				self.addMethod(StaticInitMethod(self,self.variables,"item",secondaryInitMethod))
+				self.addMethod(secondaryInitMethod)
+				
 				
 				#add the dealloc and description methods
 				self.addMethod(DeallocMethod(self))
 				self.addMethod(DescriptionMethod(self))
+				
+				self.implementCoding()
+	
+	
+class ItemInitMethod(InitMethod):
+		def definition(self):
+				definition = (ItemInitMethod,self).definition()
+				return definition
+										
+				
+				
 								

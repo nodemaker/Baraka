@@ -22,6 +22,7 @@ class Baraka(object):
 				self.globalSettings = {}
 				self.classes = []
 				self.generatedFiles = []
+				self.defaultsuperclass = "Object"
 				
 				self.parse()	
 				self.create()
@@ -48,15 +49,16 @@ class Baraka(object):
 			 	
 		def checkGlobalSetting(self,variablekey,keydescription,warnmessage,defaultvalue=None):
 				value = self.parseGlobalSetting(variablekey)
-				if value:
-						return value		
-				else:
+				if not value:
 						print "\nWARNING: "+keydescription+" not found...Use Key \""+variablekey+"\" to specify "+keydescription
 						if defaultvalue:
-								print "\nWARNING: Using "+defaultvalue+" as "+keydescription
+								print "WARNING: Using "+defaultvalue+" as "+keydescription
 						elif warnmessage:
 								print "WARNING: "+warnmessage
-						return defaultvalue				
+						value = defaultvalue
+				
+				self.globalSettings[variablekey] = value
+				return value						
 				
 		def parseGlobalSetting (self,varname):
 				varnameMatch = re.search(r'%(var)s[\t= ]+(.+)\n'%{'var':varname},self.rawString,re.IGNORECASE)
@@ -77,10 +79,9 @@ class Baraka(object):
 			
 				return entities				
 				
-		def description(self):
+		def description(self,n=-1):
 				description =  "\n\nParse Results\n"
 				description += "-----------------\n"
-				
 				
 				if self.globalSettings:
 					description += "\n\n<Global Settings>" 
@@ -88,9 +89,13 @@ class Baraka(object):
 				for key in self.globalSettings:
 					description += "\n\t"+ key +" : " + self.globalSettings[key]
 				
-				if self.entities:
-					description += "\n\n<Entities>" 	
-					for entity in self.entities:
+				if n>0:
+						entities = [self.entities[n-1]]
+				else:		
+						entities = self.entities
+				
+				description += "\n\n<Entities>" 	
+				for entity in entities:
 						description += "\t"+entity.description().replace('\n','\n\t')
 				
 				return description

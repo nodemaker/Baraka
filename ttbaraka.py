@@ -5,7 +5,7 @@ from file import *
 from objc import *
 
 
-class TTBaraka(Baraka):		
+class TTBaraka(Baraka):
 								
 		def parse(self):
 				super(TTBaraka,self).parse()
@@ -20,34 +20,51 @@ class TTBaraka(Baraka):
 						else:
 								print "\nWARNING: lint script not found at path %s/lint"%lintscriptrootdir
 								print "WARNING: Wont be able to delint files"
-								self.delint = False								
-								
-		def printToConsole(self):
-				for objcclass in self.classes:
-						HeaderFile = ObjCHeaderFile(objcclass,self.project)
-						HeaderFile.printout()
-						
-						ImplementationFile = ObjCImplFile(objcclass,self.project)
-						ImplementationFile.printout()	
-			
-		def generate(self):
+								self.delint = False	
+		
+		
+		def generate(self,n=-1,header=True,source=True):
+				
 				self.generatedFiles = []
 				
-				for objcclass in self.classes:
-						HeaderFile = ObjCHeaderFile(objcclass,self.project)
-						HeaderFile.generateFile(self.dirpath)
-						self.generatedFiles.append(HeaderFile.filePath(self.dirpath))
-												
-						ImplementationFile = ObjCImplFile(objcclass,self.project)
-						ImplementationFile.generateFile(self.dirpath)
-						self.generatedFiles.append(ImplementationFile.filePath(self.dirpath))	
+				if n>0:
+						classes = [self.classes[n-1]]
+				else:		
+						classes = self.classes
+						
+				for objcclass in classes:
+						if header:
+								HeaderFile = ObjCHeaderFile(objcclass,self.project,self.hacker)
+								HeaderFile.generateFile(self.dirpath)
+								self.generatedFiles.append(HeaderFile.filePath(self.dirpath))						
+						if source:						
+								ImplementationFile = ObjCImplFile(objcclass,self.project,self.hacker)
+								ImplementationFile.generateFile(self.dirpath)
+								self.generatedFiles.append(ImplementationFile.filePath(self.dirpath))	
 				
 				if self.delint:
 						for generatedFile in self.generatedFiles:				
 								self.lint_mod.lint(generatedFile,dotdict({'delint': True}))	
 						
-						#cleanup the lintc file
+								#cleanup the lintc file
 								lintcfile = self.lintscriptrootdir+"/lintc"
 								if(os.path.exists(lintcfile)):
 										os.remove(lintcfile)														
 				
+													
+								
+		def printToConsole(self,n=-1,header=True,source=True):
+		
+				if n>0:
+						classes = [self.classes[n-1]]
+				else:		
+						classes = self.classes
+		
+				for objcclass in classes:
+						if header:
+								HeaderFile = ObjCHeaderFile(objcclass,self.project,self.hacker)
+								HeaderFile.printout()
+						
+						if source:
+								ImplementationFile = ObjCImplFile(objcclass,self.project,self.hacker)
+								ImplementationFile.printout()	

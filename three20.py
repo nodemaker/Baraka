@@ -30,7 +30,17 @@ def main():
 						action="store_true")				
 		optparser.add_option("-p", "--parse", dest="parse",
 						help="Just Parse...Dont print,generate or even print description",
-						action="store_true")								
+						action="store_true")
+		optparser.add_option("-n", "--nonly", dest="nonly",
+						help="Print or Generate or describe the nth entity only",type="int",
+						action="store")
+		optparser.add_option("-k", "--header", dest="header",
+						help="Print or Generate the Header file only",
+						action="store_true")
+		optparser.add_option("-s", "--source", dest="source",
+						help="Print or Generate the Source file only",
+						action="store_true")
+		
 		(options, args) = optparser.parse_args()
 		
 		#check if inputfile was given
@@ -49,29 +59,45 @@ def main():
 		
 		#create the necessary baraks
 		if options.__dict__['item']:
-						baraks.append(TTItemBaraka(inputfile))
+				baraks.append(TTItemBaraka(inputfile))
 		elif options.__dict__['model']:
-						baraks.append(TTModelBaraka(inputfile))
+				baraks.append(TTModelBaraka(inputfile))
 		elif options.__dict__['object']:
-						baraks.append(TTObjectBaraka(inputfile))
+				baraks.append(TTObjectBaraka(inputfile))
 		else:
-						baraks.append(TTItemBaraka(inputfile)) 		
-						baraks.append(TTModelBaraka(inputfile))
-						objectbaraka = TTObjectBaraka(inputfile)
-	 		
-	 	#ask the baraks to perform the necessary operations	
- 		if options.__dict__['parse']:
- 				print "\nSuccessfully Parsed inputfile %s"%os.path.basename(args[0])
+				baraks.append(TTItemBaraka(inputfile)) 		
+				baraks.append(TTModelBaraka(inputfile))
+				objectbaraka = TTObjectBaraka(inputfile)
+		
+		n = 0
+		#check for the nonly header and source option
+		if options.__dict__['nonly']:
+				n = options.__dict__['nonly']
+		
+		
+		header = False
+		source = False
+		if options.__dict__['header']:
+				header = True
+		elif options.__dict__['source']:
+				source = True
+		else:
+				header = True
+				source = True
+		
+		#ask the baraks to perform the necessary operations	
+		if options.__dict__['parse']:
+				print "\nSuccessfully Parsed inputfile %s"%os.path.basename(args[0])
 				sys.exit()
- 		elif options.__dict__['debug']:
- 				for baraka  in baraks:
- 						print baraka.description()
- 		elif options.__dict__['verbose']:
- 				for baraka  in baraks:
- 						baraka.printToConsole()		
- 		else:	
- 				for baraka  in baraks:
- 						baraka.generate()							
+		elif options.__dict__['debug']:
+				for baraka  in baraks:
+						print baraka.description(n)
+		elif options.__dict__['verbose']:
+				for baraka  in baraks:
+						baraka.printToConsole(n,header,source)
+		else:	
+				for baraka  in baraks:
+						baraka.generate(n,header,source)
 						
 if __name__ == '__main__':
 	main()

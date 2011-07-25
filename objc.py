@@ -32,7 +32,13 @@ class ObjCClass(object):
 				self.baraka = baraka
 			
 				self.name = entity.typeBaseEntity.type
-				self.supertype = ObjCType(entity.typeBaseEntity.name)
+				if entity.typeBaseEntity.name:
+					self.supertype = ObjCType(entity.typeBaseEntity.name)
+				elif baraka.defaultsuperclass:
+					self.supertype = ObjCType(baraka.defaultsuperclass)
+				else:
+					self.supertype = ObjCType("Object")	
+						
 				self.variables = []
 				self.properties = []
 				self.staticInitMethod = None
@@ -52,6 +58,10 @@ class ObjCClass(object):
 				
 				if not objcvar.type.isBaseType():
 					self.headerImports.add(objcvar.type) 
+					
+		def implementCoding(self):
+				self.addMethod(CodingDecodeMethod(self))
+				self.addMethod(CodingEncodeMethod(self))			
 					
 		def addProperty(self,property):
 		
@@ -162,17 +172,23 @@ class ObjCMethodType:
 class ObjCMethod (object):
 	
 		def __init__(self,objcclass,returnType,variables,methodname,methodType=ObjCMethodType.instanceMethod):
-				
-				if(len(variables)>0):
-						methodname+="With"
-				for variable in variables:
-						methodname+=firstuppercase(variable.name)+":"
-				
-				self.name=methodname
+				self.name=self.createMethodName(methodname,variables)
 				self.returnType=ObjCType(returnType)
 				self.variables=variables
 				self.objcclass=objcclass
 				self.methodType = methodType
+				
+		def createMethodName(self,methodname,variables):
+				
+				if(len(variables)>0):
+						methodname+="With"
+				for index,variable in enumerate(variables):
+						if index is 0:
+								methodname+=firstuppercase(variable.name)+":"
+						else:
+								methodname+=variable.name+":"
+				return methodname
+										
 		
 		def callString(self,variables):
 				if not variables:
@@ -260,13 +276,72 @@ class InitMethod(ObjCMethod):
 				for variable in self.variables:
 						ifblock.appendStatement("self.%(var)s = %(var)s"%{'var':variable.name})				
 				definition.extend(ifblock)
+				definition.appendStatement("return self")
 				return definition
+
+class CodingDecodeMethod(ObjCMethod):
+		def __init__(self,objcclass):
+				variables = [ObjCVar("NSCoder","decoder")]
+				methodname = "init"
+				super(CodingDecodeMethod,self).__init__(objcclass,"Generic",variables,methodname)
+		
+		def createMethodName(self,methodname,variables):
+				return methodname + "WithCoder:"
+				
+		def definition(self):	
+				definition = super(CodingDecodeMethod,self).definition()		
+				ifblock = CodeBlock("if (self = [super initWithCoder:decoder])")
+							
+				for variable in self.objcclass.variables:
+						ifblock.appendStatement("self.%(var)s = [decoder decodeObjectForKey:@\"%(var)s\"]"%{'var':variable.name})				
+				definition.extend(ifblock)
+				definition.appendStatement("return self")
+				return definition
+				
+		def declaration (self):
+				return None	
+				
+class CodingEncodeMethod(ObjCMethod):
+		def __init__(self,objcclass):
+				variables = [ObjCVar("NSCoder","encoder")]
+				methodname = "enocde"
+				super(CodingEncodeMethod,self).__init__(objcclass,"None",variables,methodname)
+		
+		def createMethodName(self,methodname,variables):
+				return methodname + "WithCoder:"
+				
+		def definition(self):	
+				definition = super(CodingEncodeMethod,self).definition()		
+				
+				definition.appendStatement("[super encodeWithCoder:encoder]")
+				
+				definition.append("")
+							
+				for variable in self.objcclass.variables:
+						ifblock = CodeBlock("if (self.%s)"%variable.name)
+						ifblock.appendStatement("[encoder encodeObject:self.%(var)s forKey:@\"%(var)s\"]"%{'var':variable.name})
+						definition.extend(ifblock)
+				
+				return definition	
+												
+		def declaration (self):
+				return None	
 
 class StaticInitMethod(ObjCMethod):
 		
-		def __init__(self,objcclass,variables=[],methodname="object"):
+		def __init__(self,objcclass,variables=[],methodname="object",initMethod = None):
+				if not initMethod:
+						self.initMethod = objcclass.initMethod
+				else:
+						self.initMethod = initMethod		
 				super(StaticInitMethod,self).__init__(objcclass,"Generic",variables,methodname,ObjCMethodType.staticMethod)
 				
+		def definition(self):
+				definition = super(StaticInitMethod,self).definition()
+				if self.initMethod:
+						methodCall = self.initMethod.callString(self.variables)
+						definition.appendStatement("return [[[self alloc] %s] autorelease]"%methodCall)
+				return definition
 
 class DeallocMethod (ObjCMethod):
 
@@ -314,12 +389,13 @@ class DescriptionMethod(ObjCMethod):
 
 class ObjCFile (File):
 		
-		def __init__(self,objcclass,projectname):
+		def __init__(self,objcclass,projectname,hackername="Baraka"):
 				self.objcclass=objcclass
-				self.projectname=projectname	
+				self.projectname=projectname
+				self.hackername = hackername	
 		
 		def fileHeader(self):
-				return ["//","//\t"+self.filename(),"//\t"+self.projectname,"//"]	
+				return ["//","//\t"+self.filename(),"//\t"+self.projectname,"//","//\tCreated by "+self.hackername,"//"]	
 					
 
 class ObjCHeaderFile (ObjCFile):

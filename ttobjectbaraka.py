@@ -25,9 +25,9 @@ class TTObjectBaraka(TTBaraka):
 				for entity in self.entities:
 						self.classes.append(ModelObjectClass(entity,self))	
 		
-		def generate(self):
+		def generate(self,n=-1,header=True,source=True):
 				print "\nGenerating Model Objects from file %s...\n"%self.fileName
-				super(TTObjectBaraka,self).generate()
+				super(TTObjectBaraka,self).generate(n,header,source)	
 
 
 class ModelObjectClass(ObjCClass):
@@ -56,6 +56,12 @@ class ModelObjectClass(ObjCClass):
 				inputSubEntity = self.entity.getSubEntityByName("input")
 				
 				for baseEntity in inputSubEntity.baseEntities:
+				
+						inputtype = ObjCType(baseEntity.type)
+						
+						if not inputtype.isBaseType():
+							self.headerImports.add(inputtype)
+				
 						inputVariables.append(ObjCVar(baseEntity.type,baseEntity.name))
 				
 				self.staticInitMethod = ModelObjectStaticInitMethod(self,inputVariables)
