@@ -1,7 +1,35 @@
+#!/usr/bin/env python
+# encoding: utf-8
+# Created by Sumeru Chatterjee by writing some motherfucking code!
+
+
 import sys,string,pdb,re,os,imp, pickle
 
-from ttmodelobjectbarak import *
-from objcbarak import *
+from objc import *
+from ttbaraka import *
+from baraka import *
+from code import *
+
+class TTModelBaraka(TTBaraka):
+		
+		def __init__(self,fileName):
+				super(TTModelBaraka,self).__init__(fileName,["object"],["input","output"])
+				
+		def parse(self):
+				self.modelurlmacro =  self.checkGlobalSetting("model_url","macro for creating model URLs",None,"URL")
+				self.dirname = self.checkGlobalSetting("model_dir","Model objects destination Directory",None,"DataModels")
+				super(TTModelBaraka,self).parse()
+				
+		def create(self):
+				print "Cant create shit!!"
+				#for entity in self.entities:
+				#self.classes.append(ModelClass(entity,self))	
+		
+		def generate(self):
+				print "\nGenerating Models from file %s...\n"%self.fileName
+				super(TTModelBaraka,self).generate()
+
+
 
 class ModelClass(ObjCClass):
 

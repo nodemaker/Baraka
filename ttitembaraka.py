@@ -1,59 +1,31 @@
+#!/usr/bin/env python
+# encoding: utf-8
+# Created by Sumeru Chatterjee by copying stuff from TTObjectBaraka lol!
+
 import sys,string,pdb,re,os,imp, pickle
 
-from objcbaraka import *
+from objc import *
+from ttbaraka import *
 from baraka import *
 from code import *
 
-class TTItemBaraka(Baraka):
+class TTItemBaraka(TTBaraka):
 		
 		def __init__(self,fileName):
-				self.classes = []
 				super(TTItemBaraka,self).__init__(fileName,["item"],["input","output"])
-				self.create()
+		
+		def parse(self):
+				self.dirname = self.checkGlobalSetting("item_dir","Items Destination directory",None,"TableItems")
+				super(TTItemBaraka,self).parse()
 		
 		def create(self):
 				for entity in self.entities:
-						self.classes.append(ItemClass(entity,self))	
-					
-		def printToConsole(self):
-				for objcclass in self.classes:
-						HeaderFile = ObjCHeaderFile(objcclass,self.project)
-						HeaderFile.printout()
-						
-						ImplementationFile = ObjCImplFile(objcclass,self.project)
-						ImplementationFile.printout()
+						self.classes.append(ItemClass(entity,self))				
 		
 		def generate(self):
-				itemdirpath = self.rootpath +"/"+self.itemdir
-				if not os.path.exists(itemdirpath):
-						print "\nCreating Directory %s"%itemdirpath
-						os.makedirs(itemdirpath)	
+				print "\nGenerating Table Items from file %s...\n"%self.fileName
+				super(TTItemBaraka,self).generate()		
 				
-				print "\nGenerating Items from file %s...\n"%self.inputfilename
-				
-				project=self.project
-				delint = False		
-				if self.three20path:
-						lintscriptrootdir =self.rootpath+"/"+self.three20path+"/"+"src/scripts"
-						if os.path.exists(lintscriptrootdir):
-								sys.path.append(lintscriptrootdir)
-								lint_mod = imp.load_source("lint",lintscriptrootdir+"/lint")
-								lint_mod.maxlinelength = 1000
-								delint = True						
-						else:
-								print "\nWARNING: lint script not found at path %s/lint"%lintscriptrootdir
-								print "WARNING: Wont be able to delint files"
-				
-				for objcclass in self.classes:
-						HeaderFile = ObjCHeaderFile(objcclass,self.project)
-						HeaderFile.generateFile(itemdirpath)
-						if delint is True:
-								lint_mod.lint(HeaderFile.filePath(itemdirpath),dotdict({'delint': True}))
-						
-						ImplementationFile = ObjCImplFile(objcclass,self.project)
-						ImplementationFile.generateFile(itemdirpath)
-						if delint is True:
-								lint_mod.lint(ImplementationFile.filePath(itemdirpath),dotdict({'delint': True}))
 
 class ItemClass(ObjCClass):
 

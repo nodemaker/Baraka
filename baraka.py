@@ -2,44 +2,68 @@
 # encoding: utf-8
 # Created by Sumeru Chatterjee on one of those long nights
 
-import sys,string,pdb,re
+import sys,string,pdb,re,os
+
+from file import *
+from objc import *
+from code import *
 
 class Baraka(object):
 		
-		def __init__(self,fileName,entityNames=[],subEntityNames=[]):
-				self.rawString = open(fileName, 'r').read()		
+		def __init__(self,inputfile,entityNames=[],subEntityNames=[]):
+				self.rawString = open(inputfile, 'r').read()		
+				self.inputfile = inputfile
+				self.fileName = os.path.basename(inputfile)
 				
 				self.entityNames = entityNames
 				self.subEntityNames = subEntityNames
 				
 				self.entities = []
 				self.globalSettings = {}
+				self.classes = []
+				self.generatedFiles = []
 				
-				self.parse()
+				self.parse()	
+				self.create()
 				
-		def parse(self):		
+		def parse(self):
+				#calculate the rootpath and abspath		
+				self.abspath = os.path.abspath(self.inputfile)
+				self.rootpath =  os.path.dirname(self.abspath)
+				self.dirpath = self.rootpath +"/"+self.dirname
+				
+				self.hacker = self.checkGlobalSetting("hacker","Name of hacker","No hacker name will be written on the files")
+				self.project = self.checkGlobalSetting("project","project name","No project name will be written in files")
+				
 				for entityName in self.entityNames:
 						self.entities.extend(self.parseEntities(entityName))
-						
+				
+				
 		def parseEntities(self,entityName):
 			 	entities = []
 			 	rawEntities	= re.findall(r'[\n\A](%(section)s[\t: \n].*?)(?:(?:\nEnd))'%{'section':entityName},self.rawString,re.DOTALL|re.IGNORECASE)
 			 	for rawEntity in rawEntities:
 			 			entities.append(Entity(rawEntity,entityName,self.subEntityNames))
-			 	return entities
+			 	return entities	 	
 			 	
-		def getGlobalSetting (self,varname):
-				if varname in self.globalSettings:
-						return self.globalSettings[varname]
+		def checkGlobalSetting(self,variablekey,keydescription,warnmessage,defaultvalue=None):
+				value = self.parseGlobalSetting(variablekey)
+				if value:
+						return value		
 				else:
-					setting = self.parseGlobalSetting(varname)
-					self.globalSettings[varname] = setting
-					return setting			
+						print "\nWARNING: "+keydescription+" not found...Use Key \""+variablekey+"\" to specify "+keydescription
+						if defaultvalue:
+								print "\nWARNING: Using "+defaultvalue+" as "+keydescription
+						elif warnmessage:
+								print "WARNING: "+warnmessage
+						return defaultvalue				
 				
 		def parseGlobalSetting (self,varname):
 				varnameMatch = re.search(r'%(var)s[\t= ]+(.+)\n'%{'var':varname},self.rawString,re.IGNORECASE)
 				if varnameMatch:
 						return varnameMatch.group(1)
+				else:
+						return None		
 		
 		def rawDescription(self):
 				return self.rawString
@@ -70,10 +94,10 @@ class Baraka(object):
 						description += "\t"+entity.description().replace('\n','\n\t')
 				
 				return description
-			
-								
-				
-class Entity(object):				
+
+
+
+class Entity(object):
 		def __init__(self,rawEntity,entityName,subEntityNames):				
 				self.rawString = rawEntity	
 				self.name = entityName
@@ -186,7 +210,6 @@ class BaseEntity(object):
 		def parse(self):
 				
 				parts = re.split('[\t ]',self.rawString)
-				
 				
 				typeParts = re.split('[<>]',parts[0])
 				

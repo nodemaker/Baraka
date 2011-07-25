@@ -1,64 +1,33 @@
+#!/usr/bin/env python
+# encoding: utf-8
+# Created and perfected by Sumeru Chatterjee on many long nights
+
+
 import sys,string,pdb,re,os,imp, pickle
 
-from objcbaraka import *
+from objc import *
+from ttbaraka import *
 from baraka import *
 from code import *
 
 dateFormat = "yyyy-MM-dd'T'HH:mm:ssZZ"
 
-
-class TTObjectBaraka(Baraka):
+class TTObjectBaraka(TTBaraka):
 		
 		def __init__(self,fileName):
-				self.classes = []
 				super(TTObjectBaraka,self).__init__(fileName,["object"],["input","output"])
-				self.create()
-		
+				
+		def parse(self):
+				self.dirname = self.checkGlobalSetting("model_object_dir","Model objects destination Directory",None,"DataObjects")
+				super(TTObjectBaraka,self).parse()
+				
 		def create(self):
 				for entity in self.entities:
 						self.classes.append(ModelObjectClass(entity,self))	
-					
-		def printToConsole(self):
-				for objcclass in self.classes:
-						HeaderFile = ObjCHeaderFile(objcclass,self.project)
-						HeaderFile.printout()
-						
-						ImplementationFile = ObjCImplFile(objcclass,self.project)
-						ImplementationFile.printout()
 		
 		def generate(self):
-				modelobjectdirpath = self.rootpath +"/"+self.modelobjectdir
-				if not os.path.exists(modelobjectdirpath):
-						print "\nCreating Directory %s"%modelobjectdirpath
-						os.makedirs(modelobjectdirpath)	
-				
-				print "\nGenerating Models from file %s...\n"%self.inputfilename
-				
-				project=self.project
-				delint = False		
-				if self.three20path:
-						lintscriptrootdir =self.rootpath+"/"+self.three20path+"/"+"src/scripts"
-						if os.path.exists(lintscriptrootdir):
-								sys.path.append(lintscriptrootdir)
-								lint_mod = imp.load_source("lint",lintscriptrootdir+"/lint")
-								lint_mod.maxlinelength = 1000
-								delint = True						
-						else:
-								print "\nWARNING: lint script not found at path %s/lint"%lintscriptrootdir
-								print "WARNING: Wont be able to delint files"
-				
-				for objcclass in self.classes:
-						HeaderFile = ObjCHeaderFile(objcclass,self.project)
-						HeaderFile.generateFile(modelobjectdirpath)
-						if delint is True:
-								lint_mod.lint(HeaderFile.filePath(modelobjectdirpath),dotdict({'delint': True}))
-						
-						ImplementationFile = ObjCImplFile(objcclass,self.project)
-						ImplementationFile.generateFile(modelobjectdirpath)
-						if delint is True:
-								lint_mod.lint(ImplementationFile.filePath(modelobjectdirpath),dotdict({'delint': True}))
-
-
+				print "\nGenerating Model Objects from file %s...\n"%self.fileName
+				super(TTObjectBaraka,self).generate()
 
 
 class ModelObjectClass(ObjCClass):
