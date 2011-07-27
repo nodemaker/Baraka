@@ -43,7 +43,7 @@ class ModelObjectClass(ObjCClass):
 				for baseEntity in outputSubEntity.baseEntities:
 						variable = ObjCVar(baseEntity.type,baseEntity.name)
 						attributes = ["nonatomic"]
-						if variable.type.objCType() is 'NSString' or variable.type.objCType() is 'NSDate':
+						if variable.type.isCopyable():
 								attributes.append("copy")
 						else:	
 								attributes.append("retain")
@@ -64,40 +64,12 @@ class ModelObjectClass(ObjCClass):
 				
 						inputVariables.append(ObjCVar(baseEntity.type,baseEntity.name))
 				
-				self.staticInitMethod = ModelObjectStaticInitMethod(self,inputVariables)
+				self.staticInitMethod = TTStaticInitMethod(self,inputVariables)
 				self.initMethod = DictionaryInitMethod(self,inputVariables)
 				
 				#add the dealloc and description methods
 				self.addMethod(DeallocMethod(self))
 				self.addMethod(DescriptionMethod(self))
-
-class ModelObjectStaticInitMethod(StaticInitMethod):				
-		
-		def definition(self):
-				definition = super(ModelObjectStaticInitMethod,self).definition()
-				
-				subClassEntities = self.objcclass.baraka.getEntitiesWithTypeName(self.objcclass.name)
-				
-				for entity in subClassEntities:
-						qualification = ObjectQualification(entity.typeBaseEntity.subName)
-						params = {'field':qualification.field,'qualifier':qualification.qualifier}
-						ifblock = CodeBlock("if([[entry objectForKey:@\"%(field)s\"] isEqualToString:@\"%(qualifier)s\"])"%params)
-						
-						mClass = ModelObjectClass(entity,self.objcclass.baraka)
-						ifblock.appendStatement("return %s"%mClass.callStaticMethodString(mClass.staticInitMethod,self.variables))
-						
-						definition.extend(ifblock)
-						self.objcclass.implImports.add(ObjCType(entity.typeBaseEntity.type))
-										
-				definition.appendStatement("return [[[%(class)s alloc] %(initMethod)s] autorelease]"%{'class':self.objcclass.name,'initMethod':self.objcclass.initMethod.callString(self.variables)})
-				return definition
-	
-class ObjectQualification(object):
-		def __init__(self,qualificationString):
-				split = re.split(r'=',qualificationString)
-				self.field = split[0]
-				self.qualifier = split[1] 
-				self.qualificationString = qualificationString	
 
 						
 class DictionaryInitMethod(InitMethod):
@@ -187,14 +159,14 @@ class DictionaryInitializationBlock(CodeBlock):
 										objcclass.implImports.add(ObjCType(baseEntity.subType))
 										
 										forblock = CodeBlock("for (NSDictionary* entry in %(dictionary)s)"%params)
-										forblock.appendStatement("[%(objectname)s addObject:[[[%(subtype)s alloc] initWithDictionary:entry] autorelease]]"%params)
+										forblock.appendStatement("[%(objectname)s addObject:[[[%(subtype)s alloc] initWithEntry:entry] autorelease]]"%params)
 										
 										lastBlock.extend(forblock)
 										lastBlock.appendStatement("self.%(objectname)s = %(objectname)s"%params)
 								else:
 										lastBlock.append("I dont fucking know")
 						else:
-								lastBlock.appendStatement("self."+baseEntity.name+" = [[["+vartype.objCType()+" alloc] initWithDictionary:["+lastEntryName+" objectForKey:@\""+objectkey+"\"]] autorelease]")
+								lastBlock.appendStatement("self."+baseEntity.name+" = [[["+vartype.objCType()+" alloc] initWithEntry:["+lastEntryName+" objectForKey:@\""+objectkey+"\"]] autorelease]")
 						while lastBlock and lastBlock is not self:
 								lastBlock.superBlock.extend(lastBlock);
 								lastBlock.superBlock.append("")

@@ -16,8 +16,8 @@ class TTModelBaraka(TTBaraka):
 				super(TTModelBaraka,self).__init__(fileName,["object"],["input","output"])
 				
 		def parse(self):
-				self.modelurlmacro =  self.checkGlobalSetting("model_url","macro for creating model URLs",None,"URL")
 				self.dirname = self.checkGlobalSetting("model_dir","Model objects destination Directory",None,"DataModels")
+				self.defaultsuperclass = self.checkGlobalSetting("model_super","Default Model Super Class",None,"TTURLRequestModel")
 				super(TTModelBaraka,self).parse()
 				
 		def create(self):
@@ -46,7 +46,8 @@ class ModelClass(ObjCClass):
 										variable = ObjCVar('String',variablename)
 									
 								attributes = ["nonatomic"]
-								if variable.type.objCType() is 'NSString' or variable.type.objCType() is 'NSDate':
+								
+								if variable.type.objCType() is 'NSString' or variable.type.objCType() is 'NSDate' or variable.type.objcType:
 										attributes.append("copy")
 								else:	
 										attributes.append("retain")

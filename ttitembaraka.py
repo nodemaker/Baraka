@@ -16,7 +16,7 @@ class TTItemBaraka(TTBaraka):
 		
 		def parse(self):
 				self.dirname = self.checkGlobalSetting("item_dir","Items Destination directory",None,"TableItems")
-				self.defaultsuperclass = self.checkGlobalSetting("default_item_super","Default Item Super Class",None,"TTTableLinkedItem")
+				self.defaultsuperclass = self.checkGlobalSetting("item_super","Default Item Super Class",None,"TTTableLinkedItem")
 				super(TTItemBaraka,self).parse()
 		
 		def create(self):
@@ -41,8 +41,12 @@ class ItemClass(ObjCClass):
 				
 				for baseEntity in outputSubEntity.baseEntities:
 						variable = ObjCVar(baseEntity.type,baseEntity.name)
+						
+						if baseEntity.subType.lower() == "super":
+								continue
+						
 						attributes = ["nonatomic"]
-						if variable.type.objCType() is 'NSString' or variable.type.objCType() is 'NSDate':
+						if variable.type.isCopyable():
 								attributes.append("copy")
 						else:	
 								attributes.append("retain")
@@ -62,15 +66,10 @@ class ItemClass(ObjCClass):
 						
 						inputVariables.append(ObjCVar(baseEntity.type,baseEntity.name))
 				
-				self.initMethod = InitMethod(self,inputVariables)
-				self.staticInitMethod = StaticInitMethod(self,inputVariables,"item",self.initMethod)
+				self.initMethod = ItemInitMethod(self,inputVariables)
+				self.staticInitMethod = TTStaticInitMethod(self,inputVariables,"item")
 				
-				#add the secondary init method and static init method
-				secondaryInitMethod = InitMethod(self,self.variables)
-				self.addMethod(StaticInitMethod(self,self.variables,"item",secondaryInitMethod))
-				self.addMethod(secondaryInitMethod)
-				
-				
+			
 				#add the dealloc and description methods
 				self.addMethod(DeallocMethod(self))
 				self.addMethod(DescriptionMethod(self))
@@ -80,8 +79,74 @@ class ItemClass(ObjCClass):
 	
 class ItemInitMethod(InitMethod):
 		def definition(self):
-				definition = (ItemInitMethod,self).definition()
+				definition = CodeBlock(self.fullname())
+				
+				if self.objcclass.supertype.name == self.objcclass.baraka.defaultsuperclass:
+						ifblock = CodeBlock("if (self = [super init])")
+				else:		
+						superEntity = self.objcclass.baraka.getEntityWithType(self.objcclass.entity.typeBaseEntity.name)
+						
+						superEntityInput = superEntity.getSubEntityByName("input")
+						
+						inputSubEntity = self.objcclass.entity.getSubEntityByName("input")
+						
+						if superEntityInput and inputSubEntity.isEquivalent(superEntityInput): 								
+								mClass = ItemClass(superEntity,self.objcclass.baraka)
+								superCallString = mClass.initMethod.callString(self.variables)
+								ifblock = CodeBlock("if (self = [super %s])"%superCallString)
+						else:		
+								ifblock = CodeBlock("if (self = [super init])")		
+				
+				outputSubEntity = self.objcclass.entity.getSubEntityByName("output")
+						
+				for baseEntity in outputSubEntity.baseEntities:
+						if baseEntity.type == 'URL':
+								keystrings = re.findall('\'(.+?)\'',baseEntity.subName)
+								
+								vars = []
+								for keystring in keystrings:
+										keysplit = re.findall(r'\w+',keystring)
+										if not keysplit:
+												keys = [keystring]
+										else:	
+												keys = [key for key in keysplit if key]
+										vars.append(self.getKeyString(keys))		
+								
+								formatstring =re.sub('\'(.+?)\'','%@',baseEntity.subName)
+								
+								ifblock.append("")
+								ifblock.appendStatement("NSString* shortURL = [NSString stringWithFormat:@\"%(format)s\",%(vars)s]"
+															%{'format':formatstring,'vars':",".join(vars)})
+								if self.objcclass.baraka.urlmacro:
+										urlString = "%s(shortURL)"%self.objcclass.baraka.urlmacro
+								else:
+										urlString = "shortURL"
+										
+								ifblock.appendStatement("self.%(var)s = [NSURL URLWithString:%(url)s]"%{'var':baseEntity.name,'url':urlString})				
+															
+								ifblock.append("")
+						else:
+								keysplit = re.findall(r'\w+',baseEntity.subName)
+								if not keysplit:
+										keys = [baseEntity.name]
+								else:	
+										keys = [key for key in keysplit if key] 
+								keyjoin = self.getKeyString(keys)
+								ifblock.appendStatement("self.%(var)s = %(input)s"%{'var':baseEntity.name,'input':keyjoin})
+				
+				
+				definition.extend(ifblock)
+				definition.appendStatement("return self")
 				return definition
+				
+		def getKeyString(self,keys):
+				keyString = keys[0]
+				for key in keys[1:]:
+						if key.isdigit():
+								keyString = "["+keyString+" objectAtIndex:"+key+"]"
+						else:	
+								keyString = "["+keyString+" "+key+"]"
+				return keyString		 			
 										
 				
 				

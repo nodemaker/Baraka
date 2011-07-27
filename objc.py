@@ -8,6 +8,7 @@ ObjC_Classes = {'Dictionary':'NSDictionary',
 				'Number':'NSNumber',
 				'Date':'NSDate',
 				'Object':'NSObject',
+				'URL':'NSURL',
 				'Array' :'NSArray',
 				'Object':'NSObject',
 				'Generic':'id',
@@ -132,6 +133,13 @@ class ObjCType (object):
 						return self.name + " (mutable)"		
 				else:
 						return self.name
+						
+		def isCopyable(self):
+				if self.objCType() in ['NSString','NSDate','NSURL']:
+						return True
+				else:
+						return False			
+							
 class ObjCVar(object):
 		
 		def __init__(self,type,name,mutable=False):

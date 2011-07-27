@@ -60,11 +60,14 @@ def main():
 		#create the necessary baraks
 		if options.__dict__['item']:
 				baraks.append(TTItemBaraka(inputfile))
-		elif options.__dict__['model']:
+		
+		if options.__dict__['model']:
 				baraks.append(TTModelBaraka(inputfile))
-		elif options.__dict__['object']:
+		
+		if options.__dict__['object']:
 				baraks.append(TTObjectBaraka(inputfile))
-		else:
+		
+		if not baraks:
 				baraks.append(TTItemBaraka(inputfile)) 		
 				baraks.append(TTModelBaraka(inputfile))
 				objectbaraka = TTObjectBaraka(inputfile)

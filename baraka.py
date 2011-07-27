@@ -77,7 +77,25 @@ class Baraka(object):
 						if name == entity.typeBaseEntity.name:
 								entities.append(entity)
 			
-				return entities				
+				return entities
+				
+		def getSubEntities(self,name):
+				allentities = []
+				
+				entities = self.getEntitiesWithTypeName(name)
+				allentities.extend(entities)
+				
+				for entity in entities:
+					allentities.extend(self.getSubEntities(entity.typeBaseEntity.type))
+				
+				return allentities
+						
+		
+		def getEntityWithType(self,name):
+				for entity in self.entities:
+						if name == entity.typeBaseEntity.type:
+								return entity
+				return None						
 				
 		def description(self,n=-1):
 				description =  "\n\nParse Results\n"
@@ -126,12 +144,12 @@ class Entity(object):
 		
 		def parseSubEntity(self,subEntityName):
 				#look for a single line subsection first
-				singleLineMatch = re.search(r'\n+?\t*?(%(sub)s[:\t= ]+?.+?)\t*\n+'%{'sub':subEntityName},self.rawString,re.IGNORECASE)
+				singleLineMatch = re.search(r'\n+?\t*?(%(sub)s[\t= ]+?.+?)\t*\n+'%{'sub':subEntityName},self.rawString,re.IGNORECASE)
 				if singleLineMatch and singleLineMatch.group(1):
 						return singleLineMatch.group(1)
 				
 				#look for a single line subsection that is the last subsection
-				singleLineLastMatch = re.search(r'\n+?\t*?(%(sub)s[:\t= ]+?.+)'%{'sub':subEntityName},self.rawString,re.IGNORECASE)
+				singleLineLastMatch = re.search(r'\n+?\t*?(%(sub)s[\t= ]+?.+)'%{'sub':subEntityName},self.rawString,re.IGNORECASE)
 				if singleLineLastMatch and singleLineLastMatch.group(1):
 						return singleLineLastMatch.group(1)
 				
@@ -166,8 +184,21 @@ class SubEntity(object):
 				self.baseEntities = []
 		
 				self.parse()
+		
+		def isEquivalent(self,subEntity):
+				if not self.name ==	subEntity.name:
+						return False
 				
+				for baseEntity in self.baseEntities:
+						contains = False
+						for subBaseEntity in subEntity.baseEntities:
+								if (baseEntity.type == subBaseEntity.type) or (baseEntity.type == subBaseEntity.subType) or (baseEntity.subType == subBaseEntity.type) :
+										contains = True
+										break
+						if not contains:
+								return False
 				
+				return True						
 		
 		def description(self):
 				description = "<SubEntity> Name:"+self.name.title() +"\n<BaseEntities>"
