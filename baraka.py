@@ -182,8 +182,9 @@ class SubEntity(object):
 				self.name = subEntityName
 		
 				self.baseEntities = []
-		
-				self.parse()
+				
+				if self.rawString:
+						self.parse()
 		
 		def isEquivalent(self,subEntity):
 				if not self.name ==	subEntity.name:
@@ -209,7 +210,7 @@ class SubEntity(object):
 		def rawDescription(self):
 				return self.rawString
 						
-		def parse(self):
+		def parse(self):				
 				#for single line subentities
 				singlelinematch = re.search(r'%s[:\t= ]+(.*)'%self.name,self.rawString,re.IGNORECASE)
 				
@@ -243,8 +244,7 @@ class BaseEntity(object):
 		def description(self):
 				return "<BaseEntity> %(type)s<%(subtype)s> %(name)s(%(subname)s)"%{'type':self.type,'subtype':self.subType,'name':self.name,'subname':self.subName}
 				
-		def parse(self):
-				
+		def parse(self):				
 				parts = re.split('[\t ]',self.rawString)
 				
 				typeParts = re.split('[<>]',parts[0])

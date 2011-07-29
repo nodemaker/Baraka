@@ -70,7 +70,7 @@ def main():
 		if not baraks:
 				baraks.append(TTItemBaraka(inputfile)) 		
 				baraks.append(TTModelBaraka(inputfile))
-				objectbaraka = TTObjectBaraka(inputfile)
+				baraks.append(TTObjectBaraka(inputfile))
 		
 		n = 0
 		#check for the nonly header and source option

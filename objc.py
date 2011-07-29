@@ -3,6 +3,8 @@ import string,re, pdb
 from baraka import *
 from file import *
 
+#TODO: Store a list of all defined classes and their primary init methods.In fact have a default list already.This list would be very useful
+
 ObjC_Classes = {'Dictionary':'NSDictionary',
 				'String':'NSString',
 				'Number':'NSNumber',
@@ -19,8 +21,17 @@ Mutable_Classes = {'NSDictionary':'NSMutableDictionary',
 				   'NSArray':'NSMutableArray',
 				   'NSString':'NSMutableString',
 				   'NSSet':'NSMutableSet',
-				  }				  				
+				  }				  				  				
 BaseTypes = ['Generic','None','BOOL']
+
+ObjC_InitMethods = {
+					'Dictionary':'dictionaryWithDictionary:',
+					'Array':'arrayWithCapacity:',
+					'Number':'numberWithInt',
+					'Date':'dateWithString',
+					'URL':'urlWithString',
+				   }
+
 
 def add_base_type(type):
 		global BaseTypes

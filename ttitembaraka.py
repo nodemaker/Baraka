@@ -115,8 +115,13 @@ class ItemInitMethod(InitMethod):
 								formatstring =re.sub('\'(.+?)\'','%@',baseEntity.subName)
 								
 								ifblock.append("")
-								ifblock.appendStatement("NSString* shortURL = [NSString stringWithFormat:@\"%(format)s\",%(vars)s]"
+								
+								if vars:
+										ifblock.appendStatement("NSString* shortURL = [NSString stringWithFormat:@\"%(format)s\",%(vars)s]"
 															%{'format':formatstring,'vars':",".join(vars)})
+								else:
+										ifblock.appendStatement("NSString* shortURL = [NSString stringWithString:@\"%(format)s\"]"%{'format':formatstring})
+								
 								if self.objcclass.baraka.urlmacro:
 										urlString = "%s(shortURL)"%self.objcclass.baraka.urlmacro
 								else:

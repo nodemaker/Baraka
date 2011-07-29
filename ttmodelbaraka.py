@@ -9,11 +9,12 @@ from objc import *
 from ttbaraka import *
 from baraka import *
 from code import *
+from ttobjectbaraka import *
 
 class TTModelBaraka(TTBaraka):
 		
 		def __init__(self,fileName):
-				super(TTModelBaraka,self).__init__(fileName,["object"],["input","output"])
+				super(TTModelBaraka,self).__init__(fileName,["model"],["input","output","url","paging","filter"])
 				
 		def parse(self):
 				self.dirname = self.checkGlobalSetting("model_dir","Model objects destination Directory",None,"DataModels")
@@ -21,9 +22,8 @@ class TTModelBaraka(TTBaraka):
 				super(TTModelBaraka,self).parse()
 				
 		def create(self):
-				print "Cant create shit!!"
-				#for entity in self.entities:
-				#self.classes.append(ModelClass(entity,self))	
+				for entity in self.entities:
+					self.classes.append(ModelClass(entity,self))	
 		
 		def generate(self,n=-1,header=True,source=True):
 				print "\nGenerating Models from file %s...\n"%self.fileName
@@ -33,9 +33,57 @@ class TTModelBaraka(TTBaraka):
 
 class ModelClass(ObjCClass):
 
-		def __init__(self,model,parser):
+		def __init__(self,modelEntity,baraka):
 				add_base_type("TTURLRequestCachePolicy")
 				
+				self.modelEntity = modelEntity
+				super(ModelClass,self).__init__(modelEntity,baraka)
+				
+				inputVariables = []
+				inputSubEntity = self.entity.getSubEntityByName("input")
+				
+				#add the input variables from the input subentity
+				for baseEntity in inputSubEntity.baseEntities:
+						inputtype = ObjCType(baseEntity.type)
+						
+						if not inputtype.isBaseType():
+							self.headerImports.add(inputtype)
+				
+						variable = ObjCVar(baseEntity.type,baseEntity.name)
+												
+						attributes = ["nonatomic"]
+						if variable.type.isCopyable():
+								attributes.append("copy")
+						else:	
+								attributes.append("retain")
+						
+						inputVariables.append(variable)
+						self.addInstanceVariable(variable,True,attributes)
+				
+				#add the instance variables from the output subentity
+				outputSubEntity = self.entity.getSubEntityByName("output")
+				
+				for baseEntity in outputSubEntity.baseEntities:
+						variable = ObjCVar(baseEntity.type,baseEntity.name)
+						attributes = ["nonatomic","readonly"]
+						self.addInstanceVariable(variable,True,attributes)
+			
+				#add the init methods from the input subentity
+				self.initMethod = InitMethod(self,inputVariables)
+				
+				#add the modelLoadMoreMethod
+				self.addMethod(ModelLoadMoreMethod(self))
+				
+				#add the modelDidFinishLoad method
+				self.addMethod(ModelDidFinishLoadMethod(self))
+				
+				#add the dealloc and description methods
+				self.addMethod(DeallocMethod(self))
+				self.addMethod(DescriptionMethod(self))
+				
+				
+				
+				'''
 				self.parser = parser
 				self.model = model
 				super(ModelClass,self).__init__(model.name,model.type)
@@ -72,7 +120,7 @@ class ModelClass(ObjCClass):
 				self.addMethod(ModelLoadMoreMethod(self))
 				self.addMethod(ModelDidFinishLoadMethod(self))		
 				self.addMethod(DescriptionMethod(self))
-					
+				'''	
 						
 		def isOutputInFilters(self,outputname):
 				for filter in self.model.filters:
@@ -90,14 +138,58 @@ class ModelLoadMoreMethod(ObjCMethod):
 		
 		def definition(self):
 				definition = super(ModelLoadMoreMethod,self).definition()
-				definition.appendStatement("NSString* url = nil")
+				
+				urlSubEntity = self.objcclass.entity.getSubEntityByName("url")
+				
+				urlBaseEntity = urlSubEntity.baseEntities[0]
+				
+				keystrings = re.findall('\'(.+?)\'',urlBaseEntity.type)
+				
+				vars = []
+				conditions = []
+				
+				for keystring in keystrings:
+						keysplit = re.findall(r'\w+',keystring)
+						
+						vars.append(keysplit[0])
+						
+						if len(keysplit)>1:
+							default = "@\"%s\""%keysplit[1]
+						else:
+							default = "nil"	
+						
+						definition.appendStatement("NSString* %(var)s = TTIsStringWithAnyText(self.%(var)s))?self.%(var)s:%(default)s"%{'var':keysplit[0],'default':default})
+						
+						definition.append("")
+						
+						conditions.append("TTIsStringWithAnyText(%s)"%keysplit[0])
+		
+				if conditions:		
+						urlblock = CodeBlock ("if(%s)"%"&&".join(conditions))
+				else:
+						urlblock = definition				
+																
+				formatstring =re.sub('\'(.+?)\'','%@',urlBaseEntity.type)
+				
+				if vars:
+						urlblock.appendStatement("NSString* shortURL = [NSString stringWithFormat:@\"%(format)s\",%(vars)s]"
+															%{'format':formatstring,'vars':",".join(vars)})
+				else:
+						urlblock.appendStatement("NSString* shortURL = [NSString stringWithString:@\"%(format)s\"]"%{'format':formatstring})											
+															
+				urlblock.appendStatement("NSString* url = !more?FBGRAPHURL(shortURL):self.nextURL")											
+				
+				urlblock.appendStatement("[super loadJSON:TTURLRequestCachePolicyNoCache more:more url:url]")
+				
+				if not urlblock is definition:
+						definition.extend(urlblock)
+				
 				return definition		
 
 class ModelDidFinishLoadMethod(ObjCMethod):				
 				
 		def __init__(self,modelclass):
 				self.modelclass = modelclass
-				self.model = modelclass.model
 				super(ModelDidFinishLoadMethod,self).__init__(modelclass,"None",[ObjCVar("Dictionary","result")],"requestDidFinishLoadJSON:")
 		
 		def declaration(self):
@@ -105,81 +197,30 @@ class ModelDidFinishLoadMethod(ObjCMethod):
 		
 		def definition(self):
 				definition = super(ModelDidFinishLoadMethod,self).definition()
-				for output in self.model.outputs:
-						variable = ObjCVar(output.type,output.name,True)
+				
+				outputSubEntity = self.objcclass.entity.getSubEntityByName("output")
+				
+				outputs = []
+				
+				for baseEntity in outputSubEntity.baseEntities:
+						variable = ObjCVar(baseEntity.type,baseEntity.name,True)
 						definition.appendStatement("TT_RELEASE_SAFELY(%s)"%variable.ivarname())
+						outputs.append(variable)
 						
-						'''
-						if not ObjCType(output.type).isBaseType():
-								modelobject = self.modelclass.parser.getModelObjectWithModelObjectName(output.type)
-								objClass = ModelObjectClass(modelobject,self.modelclass.parser)
-								callInitMethodString = objClass.callStaticMethodString(objClass.primaryInitMethod,["result"])
-								definition.appendStatement("%(ivar)s=[%(methodcall)s retain]"%{'ivar':variable.ivarname(),'methodcall':callInitMethodString})
-						elif output.type == "Dictionary":
-								callInitMethodString = "[NSDictionary dictionaryWithDictionary:result]"
-								definition.appendStatement("%(ivar)s=[%(methodcall)s retain]"%{'ivar':variable.ivarname(),'methodcall':callInitMethodString})
-						elif output.type == "Array":
-								initializationBlock = SubObjectInitializationBlock(self.objcclass,[output],"if(result)","result",definition)
-								definition.extend(initializationBlock)	
-						'''
-				initializationBlock = SubObjectInitializationBlock(self.objcclass,self.model.outputs,"if(result)","result",definition)
+				outputSubEntity = self.objcclass.entity.getSubEntityByName("output")
+				baseEntities = outputSubEntity.baseEntities		
+				
+				pagingSubEntity = self.objcclass.entity.getSubEntityByName("paging")
+				if pagingSubEntity.baseEntities:
+						baseEntities.extend(pagingSubEntity.baseEntities)
+						
+				initializationBlock = DictionaryInitializationBlock(self.objcclass,baseEntities,"if(result)","result",definition,True)
 				definition.extend(initializationBlock)	
 				
-						#definition.append("")
-				
+				definition.append("")
 				
 				definition.appendStatement("[super requestDidFinishLoadJSON:result]")
-				return definition			
-				
-class Model(object):
-	
-		def __init__(self,modelname,modelsuper):
-				self.name = modelname
-				self.type = modelsuper
-				self.outputs = []
-				self.inputs = []
-				self.filters = [] 
-				
-		def description(self):
-				description = "<Model>" + " " + self.name +" Type:"+ self.type
-				
-				if(len(self.inputs)>0):
-						description += "\n\t<Input>"
-				
-				for input in self.inputs:
-						description += "\n\t\t"+input.description()
-				
-				if(len(self.outputs)>0):
-						description += "\n\t<Output>"		
-						
-				for output in self.outputs:
-						description += "\n\t\t"+output.description()
-						
-				
-				if(len(self.filters)>0):
-						description += "\n\t<Filter>"		
-								
-						
-				for filter in self.filters:
-						description += "\n\t\t"+filter.description()
-				return description				
-									
-				
-class ModelInput(object):
-		
-		def __init__(self,inputtype,inputstring):
-				self.type = inputtype
-				self.string = inputstring
-				
-		def description(self):
-				return "<%(inputtype)s> %(inputstring)s"%{'inputtype':self.type,'inputstring':self.string}
-				
-		def get_variables(self):
-				if not self.type == "CustomURL":
-						return []
-				
-				return re.findall(r'\'(\w+)\'',self.string)
-				
+				return definition					
 						
 				
 						
