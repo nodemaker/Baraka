@@ -177,7 +177,7 @@ class ModelLoadMoreMethod(ObjCMethod):
 				else:
 						urlblock.appendStatement("NSString* shortURL = [NSString stringWithString:@\"%(format)s\"]"%{'format':formatstring})											
 															
-				urlblock.appendStatement("NSString* url = !more?FBGRAPHURL(shortURL):self.nextURL")											
+				urlblock.appendStatement("NSString* url = !more?FBGRAPHURL(shortURL):URLEscapeString(self.nextURL)")											
 				
 				urlblock.appendStatement("[super loadJSON:TTURLRequestCachePolicyNoCache more:more url:url]")
 				
