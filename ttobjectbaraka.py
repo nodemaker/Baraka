@@ -24,8 +24,9 @@ class TTObjectBaraka(TTBaraka):
 						self.classes.append(ModelObjectClass(entity,self))	
 		
 		def generate(self,n=-1,header=True,source=True):
-				print "\nGenerating Model Objects from file %s...\n"%self.fileName
-				super(TTObjectBaraka,self).generate(n,header,source)	
+				if self.entities:
+						print "\nGenerating Model Objects from file %s...\n"%self.fileName
+						super(TTObjectBaraka,self).generate(n,header,source)	
 
 
 class ModelObjectClass(ObjCClass):

@@ -29,7 +29,11 @@ class File(object):
 		def filePath(self,rootdir):
 				return rootdir + "/" + self.filename()
 				
-		def generateFile(self,rootdir):					
+		def generateFile(self,rootdir):
+				if not os.path.exists(rootdir):
+					os.makedirs(rootdir)
+					print "Creating Directory %s"+rootdir
+						
  				if os.path.exists(self.filePath(rootdir)):
  					mode = "OVERWRITE"
 				else:

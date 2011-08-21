@@ -24,8 +24,9 @@ class TTItemBaraka(TTBaraka):
 						self.classes.append(ItemClass(entity,self))				
 		
 		def generate(self,n=-1,header=True,source=True):
-				print "\nGenerating Table Items from file %s...\n"%self.fileName
-				super(TTItemBaraka,self).generate(n,header,source)		
+				if self.entities:
+						print "\nGenerating Table Items from file %s...\n"%self.fileName
+						super(TTItemBaraka,self).generate(n,header,source)		
 				
 
 class ItemClass(ObjCClass):

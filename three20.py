@@ -68,9 +68,11 @@ def main():
 				baraks.append(TTObjectBaraka(inputfile))
 		
 		if not baraks:
-				baraks.append(TTItemBaraka(inputfile)) 		
-				baraks.append(TTModelBaraka(inputfile))
 				baraks.append(TTObjectBaraka(inputfile))
+				baraks.append(TTModelBaraka(inputfile))
+				baraks.append(TTItemBaraka(inputfile)) 		
+				
+				
 		
 		n = 0
 		#check for the nonly header and source option
