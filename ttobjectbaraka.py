@@ -85,7 +85,6 @@ class DictionaryInitMethod(InitMethod):
 				baseEntities = outputSubEntity.baseEntities
 				
 				
-
 				if self.objcclass.supertype.objCType() is "NSObject":
 					initializationBlock = DictionaryInitializationBlock(self.objcclass,baseEntities,"if(self = [super init])","entry",definition)
 				else:

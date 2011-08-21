@@ -211,7 +211,7 @@ class DictionaryInitializationBlock(CodeBlock):
 						if objectkey == "ROOT":
 								params['initializer'] = lastEntryName
 						else:
-								params['initializer'] = "[%(dictionary)s objectForKey:@\"%(key)s\"]]"%params
+								params['initializer'] = "[%(dictionary)s objectForKey:@\"%(key)s\"]"%params
 
 								
 						if vartype.isBaseType():

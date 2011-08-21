@@ -159,7 +159,7 @@ class ModelLoadMoreMethod(ObjCMethod):
 						else:
 							default = "nil"	
 						
-						definition.appendStatement("NSString* %(var)s = TTIsStringWithAnyText(self.%(var)s))?self.%(var)s:%(default)s"%{'var':keysplit[0],'default':default})
+						definition.appendStatement("NSString* %(var)s = TTIsStringWithAnyText(self.%(var)s)?self.%(var)s:%(default)s"%{'var':keysplit[0],'default':default})
 						
 						definition.append("")
 						
@@ -178,8 +178,7 @@ class ModelLoadMoreMethod(ObjCMethod):
 				else:
 						urlblock.appendStatement("NSString* shortURL = [NSString stringWithString:@\"%(format)s\"]"%{'format':formatstring})											
 															
-				urlblock.appendStatement("NSString* url = !more?FBGRAPHURL(shortURL):URLEscapeString(self.nextURL)")											
-				
+				urlblock.appendStatement("NSString* url = !more?%s(shortURL):URLEscapeString(self.nextURL)"%self.objcclass.baraka.urlmacro)											
 				urlblock.appendStatement("[super loadJSON:TTURLRequestCachePolicyNoCache more:more url:url]")
 				
 				if not urlblock is definition:
