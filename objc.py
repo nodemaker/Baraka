@@ -31,6 +31,10 @@ ObjC_InitMethods = {
 					'Date':'dateWithString',
 					'URL':'urlWithString',
 				   }
+				   
+FrameworkMap = {
+				'TTTableLinkedItem':'Three20UI',
+			   }				   
 
 
 def add_base_type(type):
@@ -451,7 +455,11 @@ class ObjCHeaderFile (ObjCFile):
 				imports = set()
 				
 				for importType in self.objcclass.headerImports:
-					imports.add("#import \"%s.h\""%importType.objCType())
+					importClass = importType.objCType()
+					if importClass in FrameworkMap:
+						imports.add("#import <%(fw)s/%(class)s.h>"%{'fw':FrameworkMap[importClass],'class':importClass})
+					else:
+						imports.add("#import \"%s.h\""%importType.objCType())
 				
 				return imports	
 											
