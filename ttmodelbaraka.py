@@ -14,7 +14,7 @@ from ttobjectbaraka import *
 class TTModelBaraka(TTBaraka):
 		
 		def __init__(self,fileName):
-				super(TTModelBaraka,self).__init__(fileName,["model"],["input","output","url","paging","filter"])
+				super(TTModelBaraka,self).__init__(fileName,["model"],["input","output","url","paging","filter","response"])
 				
 		def parse(self):
 				self.dirname = self.checkGlobalSetting("model_dir","Model objects destination Directory",None,"DataModels")
@@ -81,48 +81,7 @@ class ModelClass(ObjCClass):
 				#add the dealloc and description methods
 				self.addMethod(DeallocMethod(self))
 				self.addMethod(DescriptionMethod(self))
-				
-				
-				
-				'''
-				self.parser = parser
-				self.model = model
-				super(ModelClass,self).__init__(model.name,model.type)
-				
-				for input in model.inputs:
-						if input.type == "CustomURL":
-								for variablename in input.get_variables():
-										variable = ObjCVar('String',variablename)
-									
-								attributes = ["nonatomic"]
-								
-								if variable.type.objCType() is 'NSString' or variable.type.objCType() is 'NSDate' or variable.type.objcType:
-										attributes.append("copy")
-								else:	
-										attributes.append("retain")
-								
-								self.addInstanceVariable(variable,True,attributes)		
-								
-								self.addMethod(InitMethod(self,[variable]))
-				
-				for output in model.outputs:
-						
-						variable = ObjCVar(output.type,output.name,True)
 										
-						attributes = ["nonatomic","readonly"]
-							
-						self.addInstanceVariable(variable,True,attributes)
-						
-						if self.isOutputInFilters(output.name):
-								allvariable = ObjCVar(output.type,"all"+firstuppercase(output.name),True)
-								self.addInstanceVariable(allvariable,False,None)
-				
-				self.addMethod(DeallocMethod(self))	
-				self.addMethod(ModelLoadMoreMethod(self))
-				self.addMethod(ModelDidFinishLoadMethod(self))		
-				self.addMethod(DescriptionMethod(self))
-				'''	
-						
 		def isOutputInFilters(self,outputname):
 				for filter in self.model.filters:
 						if filter.name == outputname:
@@ -178,8 +137,15 @@ class ModelLoadMoreMethod(ObjCMethod):
 				else:
 						urlblock.appendStatement("NSString* shortURL = [NSString stringWithString:@\"%(format)s\"]"%{'format':formatstring})											
 															
-				urlblock.appendStatement("NSString* url = !more?%s(shortURL):URLEscapeString(self.nextURL)"%self.objcclass.baraka.urlmacro)											
-				urlblock.appendStatement("[super loadJSON:TTURLRequestCachePolicyNoCache more:more url:url]")
+				urlblock.appendStatement("NSString* url = !more?%s(shortURL):URLEscapeString(self.nextURL)"%self.objcclass.baraka.urlmacro)	
+				
+				responseSubEntity = self.objcclass.entity.getSubEntityByName("response")
+				if responseSubEntity.baseEntities:
+						responseType = responseSubEntity.baseEntities[0].type;
+						urlblock.appendStatement("[super loadJSON:TTURLRequestCachePolicyNoCache more:more url:url response:[%s class]]"%responseType)
+						self.objcclass.implImports.add(ObjCType(responseType))
+				else:
+						urlblock.appendStatement("[super loadJSON:TTURLRequestCachePolicyNoCache more:more url:url]")
 				
 				if not urlblock is definition:
 						definition.extend(urlblock)
