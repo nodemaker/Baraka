@@ -13,6 +13,7 @@ ObjC_Classes = {'Dictionary':'NSDictionary',
 				'URL':'NSURL',
 				'Array' :'NSArray',
 				'Object':'NSObject',
+				'KeyValueStore': 'NSUbiquitousKeyValueStore',
 				'Generic':'id',
 				'None': 'void',
 				}
