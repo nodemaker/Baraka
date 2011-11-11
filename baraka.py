@@ -224,6 +224,12 @@ class SubEntity(object):
 						for rawBaseEntity in re.split(r'[\t\r\n^$]+',multilinematches.group(1)):
 								if rawBaseEntity:
 										self.baseEntities.append(BaseEntity(rawBaseEntity))
+		
+		def getBaseEntityByName(self,name):
+				for baseEntity in self.baseEntities:
+						if baseEntity.name.lower() == name.lower():
+								return baseEntity
+				return 	None								
 										
 										
 			

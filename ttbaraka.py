@@ -161,6 +161,15 @@ class DictionaryInitializationBlock(CodeBlock):
 				
 				self.append("")
 				
+				inputSubEntity = objcclass.entity.getSubEntityByName("input")
+				entryBaseEntity = inputSubEntity.getBaseEntityByName("entry")
+				
+				if entryBaseEntity:
+					entryType = entryBaseEntity.type;
+				else:
+					entryType = "Dictionary";	
+					
+				
 				outputSubEntity = objcclass.entity.getSubEntityByName("output")
 							
 				hasDateSubObject = False
@@ -206,7 +215,8 @@ class DictionaryInitializationBlock(CodeBlock):
 						count = len(keys)   	
 						objectkey = keys[count-1]
 						
-						params = {'objectname':baseEntity.name,'dictionary':lastEntryName,'key':objectkey,'subtype':baseEntity.subType,'vartype':vartype.objCType()}
+						objcEntryType = ObjCType(entryType).objCType();
+						params = {'objectname':baseEntity.name,'dictionary':lastEntryName,'key':objectkey,'subtype':baseEntity.subType,'vartype':vartype.objCType(),'entryType':objcEntryType}
 						
 						if objectkey == "ROOT":
 								params['initializer'] = lastEntryName
@@ -228,8 +238,8 @@ class DictionaryInitializationBlock(CodeBlock):
 										lastBlock.appendStatement("NSMutableArray* %(objectname)s = [NSMutableArray arrayWithCapacity:[%(dictionary)s count]]"%params)
 										
 										objcclass.implImports.add(ObjCType(baseEntity.subType))
-										
-										forblock = CodeBlock("for (NSDictionary* entry in %(dictionary)s)"%params)
+																				
+										forblock = CodeBlock("for (%(entryType)s* entry in %(dictionary)s)"%params)
 										forblock.appendStatement("[%(objectname)s addObject:[%(subtype)s objectWithEntry:entry]]"%params)
 										
 										lastBlock.extend(forblock)
