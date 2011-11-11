@@ -108,7 +108,7 @@ class TTStaticInitMethod(StaticInitMethod):
 								
 								params = {'field':qualification.field,'qualifier':qualification.qualifier,'var':var.name,'class':baseEntity.type}
 								
-								if baseEntity.type.lower() == "Dictionary".lower():
+								if ObjCType(baseEntity.type).isBaseType():
 										condition+="[[%(var)s objectForKey:@\"%(field)s\"] isEqualToString:@\"%(qualifier)s\"]"%params
 								else:
 										condition+="[[%(var)s %(field)s] isEqualToString:@\"%(qualifier)s\"]"%params
